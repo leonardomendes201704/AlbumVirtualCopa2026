@@ -392,7 +392,9 @@ async function loadStickerCatalog() {
 
 function normalizeCatalogSticker(sticker) {
   const number = Number(String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
-  const stickerFile = stickersByTeam.get(albumTeamKey(sticker.team_name || ""))?.get(number);
+  const stickerFile =
+    stickersByTeam.get(albumTeamKey(sticker.team_name || ""))?.get(number) ||
+    stickersByTeam.get(albumTeamKey(sticker.team_code || ""))?.get(number);
 
   return {
     id: sticker.id,
