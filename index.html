@@ -38,6 +38,10 @@
           <span class="rail-icon" aria-hidden="true">●</span>
           <span class="rail-label">Perfil</span>
         </button>
+        <button class="rail-button" id="openPacks" type="button" aria-label="Pacotinhos" title="Pacotinhos">
+          <span class="rail-icon" aria-hidden="true">▤</span>
+          <span class="rail-label">Packs</span>
+        </button>
         <button class="rail-button" type="button" aria-label="Estatisticas" title="Estatisticas">
           <span class="rail-icon" aria-hidden="true">▦</span>
           <span class="rail-label">Stats</span>
@@ -90,28 +94,59 @@
           </div>
         </section>
 
-        <section class="shop-section" aria-labelledby="packTitle">
-          <h3 id="packTitle">Pacotes de figurinhas</h3>
-          <div class="shop-grid">
-            <button class="shop-card pack-card" type="button" data-cost="25" data-pack="Bronze">
-              <strong>Bronze</strong>
-              <span>3 figurinhas</span>
-              <em>25 CR</em>
-            </button>
-            <button class="shop-card pack-card" type="button" data-cost="60" data-pack="Prata">
-              <strong>Prata</strong>
-              <span>8 figurinhas</span>
-              <em>60 CR</em>
-            </button>
-            <button class="shop-card pack-card" type="button" data-cost="120" data-pack="Ouro">
-              <strong>Ouro</strong>
-              <span>18 figurinhas</span>
-              <em>120 CR</em>
-            </button>
-          </div>
-        </section>
+        <p id="shopMessage" class="shop-message" role="status">Escolha creditos para comprar.</p>
+      </div>
+    </section>
 
-        <p id="shopMessage" class="shop-message" role="status">Escolha creditos ou pacotes para comecar.</p>
+    <section id="packsModal" class="packs-modal" aria-hidden="true">
+      <button class="packs-backdrop" type="button" aria-label="Fechar compra de pacotinhos"></button>
+      <div class="packs-card" role="dialog" aria-modal="true" aria-label="Comprar pacotinhos">
+        <header class="packs-header">
+          <div>
+            <span>Figurinhas</span>
+            <h2>Comprar pacotinhos</h2>
+          </div>
+          <button class="packs-close" type="button" aria-label="Fechar compra de pacotinhos">×</button>
+        </header>
+
+        <div class="packs-wallet">
+          <span>Saldo disponivel</span>
+          <strong><span id="packsCreditBalance">0</span> CR</strong>
+        </div>
+
+        <div class="pack-types" aria-label="Tipo de pacotinho">
+          <button class="pack-type is-selected" type="button" data-type="Comum" data-cost="20" data-stickers="3">
+            <strong>Comum</strong>
+            <span>3 figurinhas · 20 CR</span>
+          </button>
+          <button class="pack-type" type="button" data-type="Sortido" data-cost="45" data-stickers="7">
+            <strong>Sortido</strong>
+            <span>7 figurinhas · 45 CR</span>
+          </button>
+          <button class="pack-type" type="button" data-type="Especial" data-cost="90" data-stickers="15">
+            <strong>Especial</strong>
+            <span>15 figurinhas · 90 CR</span>
+          </button>
+        </div>
+
+        <div class="pack-quantity">
+          <button id="decreasePackQty" type="button" aria-label="Diminuir quantidade">−</button>
+          <label>
+            Quantidade
+            <input id="packQuantity" type="number" min="0" value="0" />
+          </label>
+          <button id="increasePackQty" type="button" aria-label="Aumentar quantidade">+</button>
+        </div>
+
+        <div class="packs-summary">
+          <span>Total</span>
+          <strong id="packsTotal">0 CR</strong>
+          <span>Figurinhas</span>
+          <strong id="packsStickerTotal">0</strong>
+        </div>
+
+        <button id="confirmPackPurchase" class="packs-confirm" type="button">Comprar pacotinhos</button>
+        <p id="packsMessage" class="packs-message" role="status">Escolha um tipo e a quantidade desejada.</p>
       </div>
     </section>
 

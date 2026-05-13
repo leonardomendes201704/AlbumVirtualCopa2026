@@ -1544,6 +1544,215 @@ button.sticker-cell {
   text-transform: uppercase;
 }
 
+.packs-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 23;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.packs-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.packs-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.packs-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  width: min(500px, calc(100vw - 28px));
+  max-height: 92vh;
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(214, 161, 45, 0.18), transparent 32%),
+    rgba(8, 8, 7, 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 232, 160, 0.1),
+    0 24px 70px rgba(0, 0, 0, 0.56);
+}
+
+.packs-header,
+.packs-wallet,
+.packs-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.packs-header span,
+.packs-wallet span,
+.packs-summary span {
+  color: #d6a12d;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.packs-header h2 {
+  margin: 0.1rem 0 0;
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(214, 161, 45, 0.75);
+}
+
+.packs-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fffdf4;
+  cursor: pointer;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.packs-wallet,
+.packs-summary {
+  padding: 14px;
+  border: 1px solid rgba(214, 161, 45, 0.64);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.packs-wallet strong,
+.packs-summary strong {
+  color: #fff;
+  font-size: 1.12rem;
+  text-shadow: 0 0 8px rgba(214, 161, 45, 0.7);
+}
+
+.pack-types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pack-type {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(214, 161, 45, 0.46);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #fffdf4;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pack-type.is-selected {
+  border-color: rgba(214, 161, 45, 0.95);
+  background: rgba(214, 161, 45, 0.16);
+}
+
+.pack-type strong {
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+}
+
+.pack-type span {
+  color: rgba(255, 238, 184, 0.82);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.pack-quantity {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  align-items: end;
+  gap: 10px;
+}
+
+.pack-quantity button {
+  height: 46px;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.48);
+  color: #d6a12d;
+  cursor: pointer;
+  font-size: 1.4rem;
+  font-weight: 950;
+}
+
+.pack-quantity label {
+  display: grid;
+  gap: 5px;
+  color: rgba(255, 238, 184, 0.82);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pack-quantity input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(214, 161, 45, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  text-align: center;
+}
+
+.packs-confirm {
+  padding: 13px 16px;
+  border: 1px solid rgba(214, 161, 45, 0.95);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d6a12d, #8d6416);
+  color: #100c04;
+  cursor: pointer;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.packs-confirm:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.packs-message {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(214, 161, 45, 0.46);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+  color: rgba(255, 253, 244, 0.82);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+@media (max-width: 620px) {
+  .pack-types {
+    grid-template-columns: 1fr;
+  }
+}
+
 .icon-button {
   display: grid;
   place-items: center;

@@ -245,6 +245,18 @@ const checkoutCloseButton = document.querySelector(".checkout-close");
 const checkoutProduct = document.querySelector("#checkoutProduct");
 const checkoutPrice = document.querySelector("#checkoutPrice");
 const confirmCheckoutButton = document.querySelector("#confirmCheckout");
+const openPacksButton = document.querySelector("#openPacks");
+const packsModal = document.querySelector("#packsModal");
+const packsBackdrop = document.querySelector(".packs-backdrop");
+const packsCloseButton = document.querySelector(".packs-close");
+const packsCreditBalanceElement = document.querySelector("#packsCreditBalance");
+const packQuantityInput = document.querySelector("#packQuantity");
+const decreasePackQtyButton = document.querySelector("#decreasePackQty");
+const increasePackQtyButton = document.querySelector("#increasePackQty");
+const packsTotalElement = document.querySelector("#packsTotal");
+const packsStickerTotalElement = document.querySelector("#packsStickerTotal");
+const confirmPackPurchaseButton = document.querySelector("#confirmPackPurchase");
+const packsMessage = document.querySelector("#packsMessage");
 
 let pageFlip;
 let resizeTimer;
@@ -253,6 +265,11 @@ let stickersByTeam = new Map();
 let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
+let selectedPack = {
+  type: "Comum",
+  cost: 20,
+  stickers: 3,
+};
 
 function teamKey(value) {
   return value
@@ -828,6 +845,7 @@ stickerModalBackdrop.addEventListener("click", closeStickerModal);
 
 function updateCredits(message) {
   creditBalanceElement.textContent = String(creditBalance);
+  packsCreditBalanceElement.textContent = String(creditBalance);
   localStorage.setItem("albumCredits", String(creditBalance));
   if (message) shopMessage.textContent = message;
 }
@@ -887,22 +905,76 @@ document.querySelectorAll(".credit-card").forEach((button) => {
   });
 });
 
-document.querySelectorAll(".pack-card").forEach((button) => {
+updateCredits();
+
+function maxPackQuantity() {
+  return Math.floor(creditBalance / selectedPack.cost);
+}
+
+function clampPackQuantity(value) {
+  return Math.max(0, Math.min(Number(value) || 0, maxPackQuantity()));
+}
+
+function updatePacksSummary(message) {
+  const quantity = clampPackQuantity(packQuantityInput.value);
+  packQuantityInput.value = String(quantity);
+  packQuantityInput.max = String(maxPackQuantity());
+  packsCreditBalanceElement.textContent = String(creditBalance);
+  packsTotalElement.textContent = `${quantity * selectedPack.cost} CR`;
+  packsStickerTotalElement.textContent = String(quantity * selectedPack.stickers);
+  confirmPackPurchaseButton.disabled = quantity === 0;
+  if (message) packsMessage.textContent = message;
+}
+
+function openPacksModal() {
+  updatePacksSummary();
+  packsModal.classList.add("is-open");
+  packsModal.setAttribute("aria-hidden", "false");
+}
+
+function closePacksModal() {
+  packsModal.classList.remove("is-open");
+  packsModal.setAttribute("aria-hidden", "true");
+}
+
+openPacksButton.addEventListener("click", openPacksModal);
+packsCloseButton.addEventListener("click", closePacksModal);
+packsBackdrop.addEventListener("click", closePacksModal);
+
+document.querySelectorAll(".pack-type").forEach((button) => {
   button.addEventListener("click", () => {
-    const cost = Number(button.dataset.cost);
-    const pack = button.dataset.pack;
-
-    if (creditBalance < cost) {
-      updateCredits(`Saldo insuficiente para o pacote ${pack}.`);
-      return;
-    }
-
-    creditBalance -= cost;
-    updateCredits(`Pacote ${pack} comprado. As novas figurinhas serao abertas em breve.`);
+    document.querySelectorAll(".pack-type").forEach((typeButton) => typeButton.classList.remove("is-selected"));
+    button.classList.add("is-selected");
+    selectedPack = {
+      type: button.dataset.type,
+      cost: Number(button.dataset.cost),
+      stickers: Number(button.dataset.stickers),
+    };
+    updatePacksSummary(`Tipo selecionado: ${selectedPack.type}.`);
   });
 });
 
-updateCredits();
+decreasePackQtyButton.addEventListener("click", () => {
+  packQuantityInput.value = String(clampPackQuantity(Number(packQuantityInput.value) - 1));
+  updatePacksSummary();
+});
+
+increasePackQtyButton.addEventListener("click", () => {
+  packQuantityInput.value = String(clampPackQuantity(Number(packQuantityInput.value) + 1));
+  updatePacksSummary();
+});
+
+packQuantityInput.addEventListener("input", () => updatePacksSummary());
+
+confirmPackPurchaseButton.addEventListener("click", () => {
+  const quantity = clampPackQuantity(packQuantityInput.value);
+  if (quantity === 0) return;
+
+  const totalCost = quantity * selectedPack.cost;
+  creditBalance -= totalCost;
+  updateCredits();
+  updatePacksSummary(`${quantity} pacotinho(s) ${selectedPack.type} comprado(s).`);
+});
 
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
@@ -949,6 +1021,11 @@ confirmCheckoutButton.addEventListener("click", () => {
 applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && packsModal.classList.contains("is-open")) {
+    closePacksModal();
+    return;
+  }
+
   if (event.key === "Escape" && checkoutModal.classList.contains("is-open")) {
     closeCheckout();
     return;
