@@ -962,6 +962,31 @@ button.sticker-cell {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
+.sticker-cell.is-placeholder-filled {
+  align-content: center;
+  gap: 0.34rem;
+  padding: 8%;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.22), transparent 4rem),
+    linear-gradient(150deg, rgba(12, 80, 54, 0.64), rgba(9, 10, 10, 0.7) 52%, rgba(190, 138, 32, 0.5));
+  color: #fffdf4;
+}
+
+.pasted-placeholder-number {
+  color: #f8d46c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.2rem, 2.1vw, 2.1rem);
+  line-height: 0.92;
+  text-shadow: 0 0 10px rgba(214, 161, 45, 0.62);
+}
+
+.sticker-cell.is-placeholder-filled small {
+  color: rgba(255, 253, 244, 0.82);
+  font-size: clamp(0.48rem, 0.78vw, 0.7rem);
+  font-weight: 850;
+  line-height: 1.1;
+}
+
 .sticker-modal {
   position: fixed;
   inset: 0;
@@ -990,6 +1015,8 @@ button.sticker-cell {
   position: relative;
   z-index: 1;
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
   place-items: center;
   width: min(72vw, 520px);
   max-height: 88vh;
@@ -1006,8 +1033,8 @@ button.sticker-cell {
 
 .sticker-modal.is-premium .sticker-modal-card {
   width: min(56vw, 58vh);
-  height: 80vh;
-  max-height: 80vh;
+  height: 86vh;
+  max-height: 86vh;
   padding: 14px;
   overflow: hidden;
   transform-style: preserve-3d;
@@ -1053,6 +1080,38 @@ button.sticker-cell {
     );
   pointer-events: none;
   animation: premiumGlint 7600ms ease-in-out infinite alternate;
+}
+
+.sticker-action-bar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sticker-action-button {
+  min-height: 38px;
+  padding: 0 0.74rem;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.64);
+  color: #fffdf4;
+  cursor: pointer;
+  font-size: clamp(0.66rem, 1.5vh, 0.82rem);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.sticker-action-primary {
+  background: rgba(214, 161, 45, 0.22);
+  color: #f9d46c;
+}
+
+.sticker-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .sticker-modal-card img,

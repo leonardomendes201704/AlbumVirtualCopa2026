@@ -234,6 +234,7 @@ const stickerModalImage = document.querySelector("#stickerModalImage");
 const stickerModalPlaceholder = document.querySelector("#stickerModalPlaceholder");
 const stickerModalClose = document.querySelector(".sticker-modal-close");
 const stickerModalBackdrop = document.querySelector(".sticker-modal-backdrop");
+const pasteStickerButton = document.querySelector("#pasteStickerButton");
 const openShopButton = document.querySelector("#openShop");
 const shopPanel = document.querySelector("#shopPanel");
 const shopCloseButton = document.querySelector(".shop-close");
@@ -289,6 +290,8 @@ let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
 let packInventory = loadPackInventory();
 let openedStickers = JSON.parse(localStorage.getItem("albumOpenedStickers") || "{}");
+let pastedStickers = JSON.parse(localStorage.getItem("albumPastedStickers") || "{}");
+let currentPreviewSticker = null;
 let packPity = JSON.parse(
   localStorage.getItem("albumPackPity") || '{"withoutEpicOrBetter":0,"withoutLegendary":0}',
 );
@@ -324,6 +327,17 @@ function teamKey(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/gi, "")
     .toLowerCase();
+}
+
+function albumTeamKey(value) {
+  const key = teamKey(value);
+  const aliases = {
+    bosniaeherzegovina: "bosniaherzegovina",
+    congodr: "republicadocongo",
+    curacao: "curacau",
+    paisesbaixos: "holanda",
+  };
+  return aliases[key] || key;
 }
 
 async function loadStickers() {
@@ -378,7 +392,7 @@ async function loadStickerCatalog() {
 
 function normalizeCatalogSticker(sticker) {
   const number = Number(String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
-  const stickerFile = stickersByTeam.get(teamKey(sticker.team_name || ""))?.get(number);
+  const stickerFile = stickersByTeam.get(albumTeamKey(sticker.team_name || ""))?.get(number);
 
   return {
     id: sticker.id,
@@ -406,6 +420,32 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function stickerJsonAttribute(sticker) {
+  return encodeURIComponent(JSON.stringify(sticker));
+}
+
+function teamCatalogStickers(teamName) {
+  return stickerCatalog.stickers
+    .filter((sticker) => albumTeamKey(sticker.team_name || sticker.teamName || "") === albumTeamKey(teamName))
+    .sort((a, b) => (a.number || 0) - (b.number || 0));
+}
+
+function officialStickerFor(sticker) {
+  if (!sticker) return null;
+  const byId = stickerCatalog.stickers.find((catalogSticker) => catalogSticker.id === sticker.id);
+  if (byId) return { ...byId, ...sticker };
+
+  const teamName = sticker.team_name || sticker.teamName || "";
+  const number = Number(sticker.number || String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
+  const byTeamAndNumber = stickerCatalog.stickers.find(
+    (catalogSticker) =>
+      albumTeamKey(catalogSticker.team_name || catalogSticker.teamName || "") === albumTeamKey(teamName) &&
+      Number(catalogSticker.number || 0) === number,
+  );
+
+  return byTeamAndNumber ? { ...byTeamAndNumber, src: sticker.src || byTeamAndNumber.src } : sticker;
 }
 
 function waitForPageFlip() {
@@ -451,20 +491,33 @@ function makePage(className, html) {
 }
 
 function stickerGrid(teamName, startNumber) {
-  const teamStickers = stickersByTeam.get(teamKey(teamName)) ?? new Map();
+  const teamCatalog = teamCatalogStickers(teamName);
   const cells = Array.from({ length: 9 }, (_, index) => {
     const number = startNumber + index;
-    const stickerFile = teamStickers.get(number);
+    const catalogSticker = teamCatalog[number - 1];
 
-    if (stickerFile) {
-      const stickerPath = `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}`;
-      return `<button class="sticker-cell is-filled" type="button" data-density="hard" data-sticker-src="${stickerPath}" aria-label="Ampliar figurinha ${number}">
-        <img src="./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}" alt="Figurinha ${number}" />
-        <span class="sticker-number">${number}</span>
+    if (!catalogSticker) {
+      return `<span class="sticker-cell"><span class="sticker-number">${number}</span></span>`;
+    }
+
+    const pastedSticker = pastedStickers[catalogSticker.id];
+    const stickerLabel = catalogSticker.album_number || String(number).padStart(3, "0");
+
+    if (pastedSticker?.src) {
+      return `<button class="sticker-cell is-filled" type="button" data-density="hard" data-sticker-json="${stickerJsonAttribute(pastedSticker)}" aria-label="Ampliar ${escapeHtml(stickerLabel)}">
+        <img src="${pastedSticker.src}" alt="${escapeHtml(pastedSticker.team_name)} ${escapeHtml(stickerLabel)}" />
+        <span class="sticker-number">${escapeHtml(stickerLabel)}</span>
       </button>`;
     }
 
-    return `<span class="sticker-cell"><span class="sticker-number">${number}</span></span>`;
+    if (pastedSticker) {
+      return `<button class="sticker-cell is-filled is-placeholder-filled" type="button" data-sticker-json="${stickerJsonAttribute(pastedSticker)}" aria-label="Ampliar ${escapeHtml(stickerLabel)}">
+        <span class="pasted-placeholder-number">${escapeHtml(stickerLabel)}</span>
+        <small>${escapeHtml(pastedSticker.team_name)}<br>${escapeHtml(pastedSticker.rarity_label)}</small>
+      </button>`;
+    }
+
+    return `<span class="sticker-cell"><span class="sticker-number">${escapeHtml(stickerLabel)}</span></span>`;
   }).join("");
 
   return `<div class="sticker-grid" aria-hidden="true">${cells}</div>`;
@@ -479,21 +532,16 @@ function pageSideClass(pageNumber) {
 }
 
 function stickerProgress() {
-  const total = imageFiles.reduce((sum, fileName) => {
-    const teamStickers = stickersByTeam.get(teamKey(fileName));
-    const stickerCount = teamStickers?.size ?? 0;
-    const pageCount = Math.max(2, Math.ceil(stickerCount / 9));
-    return sum + pageCount * 9;
-  }, 0);
-  const filled = [...stickersByTeam.values()].reduce((sum, stickers) => sum + stickers.size, 0);
+  const total = stickerCatalog.stickers.length || imageFiles.length * 36;
+  const filled = Object.keys(pastedStickers).length;
   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { total, filled, percent };
 }
 
 function pagesForTeam(fileName) {
-  const teamStickers = stickersByTeam.get(teamKey(fileName));
-  const stickerCount = teamStickers?.size ?? 0;
-  return Math.max(2, Math.ceil(stickerCount / 9));
+  const teamName = fileName.replace(".png", "");
+  const stickerCount = teamCatalogStickers(teamName).length;
+  return Math.max(4, Math.ceil((stickerCount || 36) / 9));
 }
 
 function teamFooter(fileName) {
@@ -838,17 +886,45 @@ function showMagazine() {
   updateStatus();
 }
 
-function openStickerModal(sticker) {
-  stickerModalImage.src = sticker.dataset.stickerSrc;
-  stickerModalImage.alt = sticker.querySelector("img")?.alt ?? "Figurinha ampliada";
-  stickerModal.classList.remove("is-premium");
-  stickerModal.classList.add("is-open");
-  stickerModal.setAttribute("aria-hidden", "false");
+function savePastedStickers() {
+  localStorage.setItem("albumPastedStickers", JSON.stringify(pastedStickers));
 }
 
-function openPremiumSticker(src, alt) {
+function updateStickerActionBar() {
+  if (!currentPreviewSticker?.id) {
+    pasteStickerButton.disabled = true;
+    pasteStickerButton.textContent = "Colar no album";
+    return;
+  }
+
+  const officialSticker = officialStickerFor(currentPreviewSticker);
+  const inventoryId = currentPreviewSticker.inventoryId || currentPreviewSticker.id;
+  const isPasted = Boolean(pastedStickers[officialSticker.id]);
+  const availableCount = openedStickers[inventoryId]?.count || openedStickers[officialSticker.id]?.count || 0;
+  pasteStickerButton.disabled = isPasted || availableCount <= 0;
+  pasteStickerButton.textContent = isPasted ? "Colada" : "Colar no album";
+}
+
+function openStickerModal(stickerElement) {
+  const sticker = stickerElement.dataset.stickerJson
+    ? JSON.parse(decodeURIComponent(stickerElement.dataset.stickerJson))
+    : {
+        src: stickerElement.dataset.stickerSrc,
+        team_name: "",
+        album_number: stickerElement.querySelector(".sticker-number")?.textContent || "",
+      };
+
+  if (sticker.src) {
+    openPremiumSticker(sticker.src, `${sticker.team_name || ""} ${sticker.album_number || ""}`, sticker);
+  } else {
+    openPremiumStickerPlaceholder(sticker);
+  }
+}
+
+function openPremiumSticker(src, alt, sticker = null) {
   if (!src) return;
 
+  currentPreviewSticker = sticker;
   stickerModalImage.src = src;
   stickerModalImage.alt = alt || "Figurinha ampliada";
   stickerModalImage.hidden = false;
@@ -858,9 +934,11 @@ function openPremiumSticker(src, alt) {
   stickerModal.classList.add("is-premium");
   stickerModal.classList.add("is-open");
   stickerModal.setAttribute("aria-hidden", "false");
+  updateStickerActionBar();
 }
 
 function openPremiumStickerPlaceholder(sticker) {
+  currentPreviewSticker = sticker;
   const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
   const teamName = sticker.team_name || sticker.teamName || "";
   const rarityLabel = sticker.rarity_label || "";
@@ -878,6 +956,7 @@ function openPremiumStickerPlaceholder(sticker) {
   stickerModal.classList.add("is-premium", "is-placeholder-preview");
   stickerModal.classList.add("is-open");
   stickerModal.setAttribute("aria-hidden", "false");
+  updateStickerActionBar();
 }
 
 function renderError(message) {
@@ -981,10 +1060,12 @@ function closeStickerModal() {
   stickerModal.classList.remove("is-open");
   stickerModal.setAttribute("aria-hidden", "true");
   stickerModal.classList.remove("is-placeholder-preview");
+  currentPreviewSticker = null;
   stickerModalImage.removeAttribute("src");
   stickerModalImage.hidden = false;
   stickerModalPlaceholder.hidden = true;
   stickerModalPlaceholder.innerHTML = "";
+  updateStickerActionBar();
 }
 
 stickerModalClose.addEventListener("click", closeStickerModal);
@@ -1198,6 +1279,42 @@ function saveOpenedStickers() {
   localStorage.setItem("albumOpenedStickers", JSON.stringify(openedStickers));
 }
 
+function pasteCurrentSticker() {
+  if (!currentPreviewSticker?.id) return;
+
+  const officialSticker = officialStickerFor(currentPreviewSticker);
+  if (!officialSticker?.id || pastedStickers[officialSticker.id]) return;
+
+  const inventoryId = currentPreviewSticker.inventoryId || currentPreviewSticker.id;
+  const current = openedStickers[inventoryId] || openedStickers[officialSticker.id];
+  if (!current || current.count <= 0) return;
+
+  pastedStickers[officialSticker.id] = {
+    ...officialSticker,
+    pastedAt: new Date().toISOString(),
+  };
+
+  current.count -= 1;
+  if (current.count <= 0) {
+    delete openedStickers[inventoryId];
+    delete openedStickers[officialSticker.id];
+  } else {
+    openedStickers[inventoryId] = current;
+  }
+
+  currentPreviewSticker = {
+    ...officialSticker,
+    inventoryId,
+  };
+
+  savePastedStickers();
+  saveOpenedStickers();
+  renderCollection();
+  updateStickerActionBar();
+  collectionMessage.textContent = "Figurinha colada no album.";
+  rebuildMagazine();
+}
+
 function addOpenedSticker(sticker) {
   const current = openedStickers[sticker.id] || {
     ...sticker,
@@ -1235,13 +1352,15 @@ function renderCollection() {
   collectionUniqueTotal.textContent = String(stickers.length);
   collectionGrid.innerHTML = stickers
     .map((sticker) => {
+      const officialSticker = officialStickerFor(sticker);
       const duplicateCount = Math.max(0, sticker.count - 1);
-      const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
-      const teamName = sticker.team_name || sticker.teamName || "";
-      const rarityLabel = sticker.rarity_label || "";
-      const encodedSticker = encodeURIComponent(JSON.stringify(sticker));
-      const media = sticker.src
-        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${sticker.src}" data-sticker-alt="${teamName} ${stickerLabel}"><img src="${sticker.src}" alt="${teamName} ${stickerLabel}" /></button>`
+      const stickerLabel = officialSticker.album_number || String(officialSticker.number || 0).padStart(3, "0");
+      const teamName = officialSticker.team_name || officialSticker.teamName || "";
+      const rarityLabel = officialSticker.rarity_label || "";
+      const displaySticker = { ...officialSticker, inventoryId: sticker.id, count: sticker.count };
+      const encodedSticker = stickerJsonAttribute(displaySticker);
+      const media = officialSticker.src
+        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${officialSticker.src}" data-sticker-alt="${teamName} ${stickerLabel}" data-sticker-json="${encodedSticker}"><img src="${officialSticker.src}" alt="${teamName} ${stickerLabel}" /></button>`
         : `<button class="collection-sticker-button" type="button" data-sticker-json="${encodedSticker}" aria-label="Ampliar ${teamName} ${stickerLabel}">
             <span class="collection-placeholder">${stickerLabel}<small>${teamName}<br>${rarityLabel}</small></span>
           </button>`;
@@ -1370,16 +1489,19 @@ collectionBackdrop.addEventListener("click", closeCollectionModal);
 collectionGrid.addEventListener("click", (event) => {
   const button = event.target.closest(".collection-sticker-button");
   if (!button) return;
+  const sticker = button.dataset.stickerJson ? JSON.parse(decodeURIComponent(button.dataset.stickerJson)) : null;
 
   if (button.dataset.stickerSrc) {
-    openPremiumSticker(button.dataset.stickerSrc, button.dataset.stickerAlt);
+    openPremiumSticker(button.dataset.stickerSrc, button.dataset.stickerAlt, sticker);
     return;
   }
 
-  if (button.dataset.stickerJson) {
-    openPremiumStickerPlaceholder(JSON.parse(decodeURIComponent(button.dataset.stickerJson)));
+  if (sticker) {
+    openPremiumStickerPlaceholder(sticker);
   }
 });
+
+pasteStickerButton.addEventListener("click", pasteCurrentSticker);
 
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
@@ -1426,6 +1548,11 @@ confirmCheckoutButton.addEventListener("click", () => {
 applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && stickerModal.classList.contains("is-open")) {
+    closeStickerModal();
+    return;
+  }
+
   if (event.key === "Escape" && collectionModal.classList.contains("is-open")) {
     closeCollectionModal();
     return;
@@ -1448,11 +1575,6 @@ window.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && shopPanel.classList.contains("is-open")) {
     closeShop();
-    return;
-  }
-
-  if (event.key === "Escape" && stickerModal.classList.contains("is-open")) {
-    closeStickerModal();
     return;
   }
 
