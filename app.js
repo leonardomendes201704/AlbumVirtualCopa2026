@@ -759,6 +759,17 @@ function showMagazine() {
 function openStickerModal(sticker) {
   stickerModalImage.src = sticker.dataset.stickerSrc;
   stickerModalImage.alt = sticker.querySelector("img")?.alt ?? "Figurinha ampliada";
+  stickerModal.classList.remove("is-premium");
+  stickerModal.classList.add("is-open");
+  stickerModal.setAttribute("aria-hidden", "false");
+}
+
+function openPremiumSticker(src, alt) {
+  if (!src) return;
+
+  stickerModalImage.src = src;
+  stickerModalImage.alt = alt || "Figurinha ampliada";
+  stickerModal.classList.add("is-premium");
   stickerModal.classList.add("is-open");
   stickerModal.setAttribute("aria-hidden", "false");
 }
@@ -1019,7 +1030,7 @@ function renderCollection() {
     .map((sticker) => {
       const duplicateCount = Math.max(0, sticker.count - 1);
       const media = sticker.src
-        ? `<img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" />`
+        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${sticker.src}" data-sticker-alt="${sticker.teamName} ${sticker.number}"><img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" /></button>`
         : `<span class="collection-placeholder">${String(sticker.number).padStart(3, "0")}</span>`;
       const badge = duplicateCount > 0 ? `<span class="duplicate-badge">+${duplicateCount}</span>` : "";
       return `<article class="collection-sticker">
@@ -1139,6 +1150,13 @@ document.querySelectorAll(".open-pack-button").forEach((button) => {
 openCollectionButton.addEventListener("click", openCollectionModal);
 collectionCloseButton.addEventListener("click", closeCollectionModal);
 collectionBackdrop.addEventListener("click", closeCollectionModal);
+
+collectionGrid.addEventListener("click", (event) => {
+  const button = event.target.closest(".collection-sticker-button");
+  if (!button) return;
+
+  openPremiumSticker(button.dataset.stickerSrc, button.dataset.stickerAlt);
+});
 
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
