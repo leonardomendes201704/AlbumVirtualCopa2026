@@ -1144,6 +1144,85 @@ button.sticker-cell {
   min-height: 44px;
 }
 
+.side-rail {
+  position: fixed;
+  top: 50%;
+  right: 16px;
+  z-index: 10;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(214, 161, 45, 0.42);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(214, 161, 45, 0.12), transparent 42%, rgba(214, 161, 45, 0.1)),
+    rgba(7, 8, 8, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 232, 160, 0.08),
+    0 14px 30px rgba(0, 0, 0, 0.28);
+  transform: translateY(-50%);
+  backdrop-filter: blur(10px);
+}
+
+.rail-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(214, 161, 45, 0.56);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #fffdf4;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.rail-button:hover {
+  border-color: rgba(214, 161, 45, 0.98);
+  background: rgba(24, 18, 6, 0.88);
+  box-shadow: 0 0 12px rgba(214, 161, 45, 0.34);
+  transform: translateX(-2px);
+}
+
+.rail-icon {
+  color: #d6a12d;
+  font-size: 1.14rem;
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(214, 161, 45, 0.72);
+}
+
+.rail-label {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  padding: 0.36rem 0.52rem;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fffdf4;
+  font-size: 0.76rem;
+  font-weight: 900;
+  opacity: 0;
+  pointer-events: none;
+  text-transform: uppercase;
+  transform: translate(6px, -50%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  white-space: nowrap;
+}
+
+.rail-button:hover .rail-label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
 .icon-button {
   display: grid;
   place-items: center;
@@ -1217,5 +1296,20 @@ button.sticker-cell {
   .page-status {
     min-width: 132px;
     font-size: 0.82rem;
+  }
+
+  .side-rail {
+    right: 8px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .rail-button {
+    width: 38px;
+    height: 38px;
+  }
+
+  .rail-label {
+    display: none;
   }
 }
