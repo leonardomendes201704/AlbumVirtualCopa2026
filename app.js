@@ -752,7 +752,7 @@ async function createMagazine(startPage = 0) {
     mobileScrollSupport: false,
     usePortrait: false,
     clickEventForward: false,
-    useMouseEvents: true,
+    useMouseEvents: false,
     startZIndex: 2,
     autoSize: false,
   });
@@ -815,31 +815,6 @@ bookElement.addEventListener("click", (event) => {
   event.stopPropagation();
   openStickerModal(sticker);
 });
-
-["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "dblclick"].forEach((eventName) => {
-  document.addEventListener(
-    eventName,
-    (event) => {
-      if (!event.target.closest(".sticker-cell.is-filled")) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    },
-    true,
-  );
-});
-
-document.addEventListener(
-  "click",
-  (event) => {
-    const sticker = event.target.closest(".sticker-cell.is-filled");
-    if (!sticker) return;
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    openStickerModal(sticker);
-  },
-  true,
-);
 
 function closeStickerModal() {
   stickerModal.classList.remove("is-open");
