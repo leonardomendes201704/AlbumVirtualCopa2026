@@ -303,6 +303,7 @@ let isCoverClosed = true;
 let stickersByTeam = new Map();
 let stickerCatalog = {
   packConfig: null,
+  raritySystem: null,
   stickers: [],
   byRarity: new Map(),
 };
@@ -390,7 +391,7 @@ async function loadStickers() {
 
 async function loadStickerCatalog() {
   try {
-    const response = await fetch("./copa_2026_album_figurinhas_48_selecoes_1728_cards.json", { cache: "no-store" });
+    const response = await fetch("./copa_2026_album_v4_48_selecoes_safe_prompt_image_player_names.json", { cache: "no-store" });
     if (!response.ok) throw new Error("Catalogo indisponivel.");
 
     const data = await response.json();
@@ -405,12 +406,14 @@ async function loadStickerCatalog() {
 
     return {
       packConfig: data.pack_config || null,
+      raritySystem: data.rarity_system || null,
       stickers,
       byRarity,
     };
   } catch {
     return {
       packConfig: null,
+      raritySystem: null,
       stickers: [],
       byRarity: new Map(),
     };
@@ -422,6 +425,7 @@ function normalizeCatalogSticker(sticker) {
   const stickerFile =
     stickersByTeam.get(albumTeamKey(sticker.team_name || ""))?.get(number) ||
     stickersByTeam.get(albumTeamKey(sticker.team_code || ""))?.get(number);
+  const player = sticker.player || null;
 
   return {
     id: sticker.id,
@@ -433,13 +437,64 @@ function normalizeCatalogSticker(sticker) {
     rarity_label: sticker.rarity_label,
     duplicate_value: sticker.duplicate_value,
     foil: sticker.foil,
+    drop: sticker.drop || null,
     title: sticker.title,
     role: sticker.role,
     category_code: sticker.category_code,
+    card_type: sticker.card_type,
+    player,
+    player_name: player?.known_as || player?.full_name || "",
+    player_full_name: player?.full_name || "",
+    position_group: player?.position_group || sticker.category_code || "",
+    position_label: player?.position_label || sticker.role || "",
+    current_club: player?.current_club || "",
+    shirt_number: player?.shirt_number || "",
+    shirt_number_status: player?.shirt_number_status || "",
+    player_status: player?.player_status || "",
+    source_type: player?.source_type || "",
+    data_confidence: player?.data_confidence || "",
+    needs_review_on_final_squad: Boolean(player?.needs_review_on_final_squad),
+    image_generation: sticker.image_generation || null,
     teamName: sticker.team_name,
     number,
     src: stickerFile ? `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}` : "",
   };
+}
+
+function stickerDisplayName(sticker) {
+  return sticker.player_name || sticker.player?.known_as || sticker.player?.full_name || sticker.title || sticker.role || "";
+}
+
+function stickerPositionLabel(sticker) {
+  return sticker.position_label || sticker.player?.position_label || sticker.role || "";
+}
+
+function stickerPromptText(sticker) {
+  const imageGeneration = sticker.image_generation || {};
+  return (
+    imageGeneration.safe_prompt_image?.positive_template ||
+    imageGeneration.safe_prompt_image?.positive ||
+    imageGeneration.symbolic_non_official?.positive ||
+    imageGeneration.positive ||
+    ""
+  );
+}
+
+function stickerMetaRows(sticker) {
+  const rows = [
+    ["Nome", stickerDisplayName(sticker)],
+    ["Posicao", stickerPositionLabel(sticker)],
+    ["Clube", sticker.current_club || sticker.player?.current_club || ""],
+    ["Camisa", sticker.shirt_number || sticker.player?.shirt_number || ""],
+    ["Tipo", sticker.card_type || ""],
+    ["Categoria", sticker.category_code || ""],
+    ["Raridade", sticker.rarity_label || ""],
+  ];
+
+  return rows
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value)}</span>`)
+    .join("");
 }
 
 function escapeHtml(value) {
@@ -463,11 +518,12 @@ function teamCatalogStickers(teamName) {
 
 function officialStickerFor(sticker) {
   if (!sticker) return null;
+  const cleanSticker = Object.fromEntries(Object.entries(sticker).filter(([, value]) => value !== undefined && value !== null));
   const byId = stickerCatalog.stickers.find((catalogSticker) => catalogSticker.id === sticker.id);
   if (byId) {
     return {
       ...byId,
-      ...sticker,
+      ...cleanSticker,
       src: sticker.src || byId.src,
     };
   }
@@ -480,7 +536,7 @@ function officialStickerFor(sticker) {
       Number(catalogSticker.number || 0) === number,
   );
 
-  return byTeamAndNumber ? { ...byTeamAndNumber, ...sticker, src: sticker.src || byTeamAndNumber.src } : sticker;
+  return byTeamAndNumber ? { ...byTeamAndNumber, ...cleanSticker, src: sticker.src || byTeamAndNumber.src } : cleanSticker;
 }
 
 function waitForPageFlip() {
@@ -546,9 +602,11 @@ function stickerGrid(teamName, startNumber) {
     }
 
     if (pastedSticker) {
+      const displayName = stickerDisplayName(pastedSticker);
+      const position = stickerPositionLabel(pastedSticker);
       return `<button class="sticker-cell is-filled is-placeholder-filled" type="button" data-sticker-json="${stickerJsonAttribute(pastedSticker)}" aria-label="Ampliar ${escapeHtml(stickerLabel)}">
         <span class="pasted-placeholder-number">${escapeHtml(stickerLabel)}</span>
-        <small>${escapeHtml(pastedSticker.team_name)}<br>${escapeHtml(pastedSticker.rarity_label)}</small>
+        <small>${escapeHtml(displayName || pastedSticker.team_name)}<br>${escapeHtml(position || pastedSticker.rarity_label)}</small>
       </button>`;
     }
 
@@ -980,12 +1038,13 @@ function openStickerModal(stickerElement) {
 function openPremiumSticker(src, alt, sticker = null) {
   if (!src) return;
 
-  currentPreviewSticker = sticker;
+  currentPreviewSticker = sticker ? officialStickerFor(sticker) : sticker;
   stickerModalImage.src = src;
   stickerModalImage.alt = alt || "Figurinha ampliada";
   stickerModalImage.hidden = false;
   stickerModalPlaceholder.hidden = true;
   stickerModalPlaceholder.innerHTML = "";
+  stickerModalCardInfo(currentPreviewSticker);
   stickerModal.classList.remove("is-placeholder-preview");
   stickerModal.classList.add("is-premium");
   stickerModal.classList.add("is-open");
@@ -994,11 +1053,12 @@ function openPremiumSticker(src, alt, sticker = null) {
 }
 
 function openPremiumStickerPlaceholder(sticker) {
-  currentPreviewSticker = sticker;
-  const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
-  const teamName = sticker.team_name || sticker.teamName || "";
-  const rarityLabel = sticker.rarity_label || "";
-  const role = sticker.role || sticker.title || "Figurinha oficial";
+  currentPreviewSticker = officialStickerFor(sticker);
+  const stickerLabel = currentPreviewSticker.album_number || String(currentPreviewSticker.number || 0).padStart(3, "0");
+  const teamName = currentPreviewSticker.team_name || currentPreviewSticker.teamName || "";
+  const rarityLabel = currentPreviewSticker.rarity_label || "";
+  const displayName = stickerDisplayName(currentPreviewSticker) || "Figurinha oficial";
+  const position = stickerPositionLabel(currentPreviewSticker);
 
   stickerModalImage.removeAttribute("src");
   stickerModalImage.hidden = true;
@@ -1007,12 +1067,42 @@ function openPremiumStickerPlaceholder(sticker) {
     <span class="modal-placeholder-kicker">${escapeHtml(rarityLabel)}</span>
     <strong>${escapeHtml(stickerLabel)}</strong>
     <span class="modal-placeholder-team">${escapeHtml(teamName)}</span>
-    <em>${escapeHtml(role)}</em>
+    <em>${escapeHtml(displayName)}</em>
+    ${position ? `<small>${escapeHtml(position)}</small>` : ""}
   `;
+  stickerModalCardInfo(currentPreviewSticker);
   stickerModal.classList.add("is-premium", "is-placeholder-preview");
   stickerModal.classList.add("is-open");
   stickerModal.setAttribute("aria-hidden", "false");
   updateStickerActionBar();
+}
+
+function stickerModalCardInfo(sticker) {
+  const card = stickerModal.querySelector(".sticker-modal-card");
+  let details = card.querySelector(".sticker-modal-info");
+
+  if (!sticker) {
+    details?.remove();
+    return;
+  }
+
+  if (!details) {
+    details = document.createElement("div");
+    details.className = "sticker-modal-info";
+    stickerModalPlaceholder.insertAdjacentElement("afterend", details);
+  }
+
+  const stickerLabel = sticker.album_number || "";
+  const displayName = stickerDisplayName(sticker);
+  const rows = stickerMetaRows(sticker);
+  const review = sticker.needs_review_on_final_squad ? `<span class="modal-review-note">Elenco sujeito a revisao final.</span>` : "";
+
+  details.innerHTML = `
+    <strong>${escapeHtml(displayName || sticker.title || stickerLabel)}</strong>
+    <span>${escapeHtml(sticker.team_name || "")} ${escapeHtml(stickerLabel)}</span>
+    <div class="sticker-modal-meta">${rows}</div>
+    ${review}
+  `;
 }
 
 function renderError(message) {
@@ -1153,6 +1243,23 @@ function marketStickerPayload(sticker) {
     foil: Boolean(officialSticker.foil),
     title: officialSticker.title || "",
     role: officialSticker.role || "",
+    card_type: officialSticker.card_type || "",
+    category_code: officialSticker.category_code || "",
+    player: officialSticker.player || null,
+    player_name: stickerDisplayName(officialSticker),
+    position_label: stickerPositionLabel(officialSticker),
+    current_club: officialSticker.current_club || officialSticker.player?.current_club || "",
+    shirt_number: officialSticker.shirt_number || officialSticker.player?.shirt_number || "",
+    drop: officialSticker.drop || null,
+    image_generation: officialSticker.image_generation || null,
+    metadata: {
+      card_type: officialSticker.card_type || "",
+      category_code: officialSticker.category_code || "",
+      player: officialSticker.player || null,
+      drop: officialSticker.drop || null,
+      image_generation: officialSticker.image_generation || null,
+      prompt: stickerPromptText(officialSticker),
+    },
     src: officialSticker.src || "",
   };
 }
@@ -1300,7 +1407,18 @@ function filteredMarketListings() {
     .filter((listing) => !rarity || listing.rarity_label === rarity)
     .filter((listing) => {
       if (!search) return true;
-      return [listing.sticker_id, listing.album_number, listing.team_name, listing.rarity_label]
+      return [
+        listing.sticker_id,
+        listing.album_number,
+        listing.team_name,
+        listing.rarity_label,
+        listing.title,
+        listing.role,
+        listing.player_name,
+        listing.position_label,
+        listing.metadata?.player?.full_name,
+        listing.metadata?.player?.known_as,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -1323,11 +1441,13 @@ function updateMarketComparison(listings) {
 
 function renderMarketListingCard(listing) {
   const stickerLabel = listing.album_number || listing.sticker_id;
+  const playerName = listing.player_name || listing.metadata?.player?.known_as || listing.metadata?.player?.full_name || listing.title || "";
+  const position = listing.position_label || listing.metadata?.player?.position_label || listing.role || "";
   const price = Number(listing.price || 0);
   const canBuy = Boolean(supabaseUser && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price);
   const media = listing.src
     ? `<img src="${listing.src}" alt="${escapeHtml(listing.team_name)} ${escapeHtml(stickerLabel)}" />`
-    : `<span class="market-card-placeholder">${escapeHtml(stickerLabel)}<small>${escapeHtml(listing.team_name || "")}<br>${escapeHtml(listing.rarity_label || "")}</small></span>`;
+    : `<span class="market-card-placeholder">${escapeHtml(stickerLabel)}<small>${escapeHtml(playerName || listing.team_name || "")}<br>${escapeHtml(listing.rarity_label || "")}</small></span>`;
   const seller = String(listing.seller_id || "").slice(0, 8);
   const disabledReason =
     listing.seller_id === supabaseUser?.id
@@ -1340,6 +1460,7 @@ function renderMarketListingCard(listing) {
     <div class="market-card-media">${media}</div>
     <div class="market-card-body">
       <strong>${escapeHtml(listing.team_name || "")} ${escapeHtml(stickerLabel)}</strong>
+      <span>${escapeHtml(playerName || position || listing.rarity_label || "")}</span>
       <span>${escapeHtml(listing.rarity_label || "")} · vendedor ${escapeHtml(seller)}</span>
       <em>${price} CR</em>
       <button class="market-buy-button" type="button" data-listing-id="${listing.id}" ${canBuy ? "" : "disabled"}>
@@ -1489,6 +1610,17 @@ async function buyMarketListing(listingId) {
         team_name: listing.team_name,
         rarity: listing.rarity,
         rarity_label: listing.rarity_label,
+        title: listing.title,
+        role: listing.role,
+        card_type: listing.card_type || listing.metadata?.card_type,
+        category_code: listing.category_code || listing.metadata?.category_code,
+        player: listing.player || listing.metadata?.player,
+        player_name: listing.player_name || listing.metadata?.player?.known_as || listing.metadata?.player?.full_name,
+        position_label: listing.position_label || listing.metadata?.player?.position_label,
+        current_club: listing.current_club || listing.metadata?.player?.current_club,
+        shirt_number: listing.shirt_number || listing.metadata?.player?.shirt_number,
+        drop: listing.drop || listing.metadata?.drop,
+        image_generation: listing.image_generation || listing.metadata?.image_generation,
         src: listing.src,
       });
       saveOpenedStickers();
@@ -1610,7 +1742,24 @@ function drawStickerFromWeights(weights) {
 
 function premiumSlots() {
   const weights = stickerCatalog.packConfig?.premium_pack?.suggested_rarity_weights;
-  if (!weights) return [];
+  if (!weights) {
+    const rarityWeights = stickerCatalog.raritySystem?.rarities || {};
+    const base = {
+      common: rarityWeights.common?.drop_weight || 7600,
+      rare: rarityWeights.rare?.drop_weight || 1700,
+      epic: rarityWeights.epic?.drop_weight || 600,
+      legendary: rarityWeights.legendary?.drop_weight || 100,
+    };
+    return [
+      base,
+      base,
+      base,
+      { common: 5000, rare: 3600, epic: 1200, legendary: 200 },
+      { common: 0, rare: 7200, epic: 2400, legendary: 400 },
+      { common: 0, rare: 5600, epic: 3600, legendary: 800 },
+      { common: 0, rare: 0, epic: 8500, legendary: 1500 },
+    ];
+  }
 
   return [
     ...Array.from({ length: 4 }, () => weights.base_slots),
@@ -1620,7 +1769,9 @@ function premiumSlots() {
 }
 
 function standardSlots() {
-  return (stickerCatalog.packConfig?.default_pack?.slots || []).map((slot) => slot.rarity_weights);
+  return (stickerCatalog.packConfig?.standard_pack?.slots || stickerCatalog.packConfig?.default_pack?.slots || []).map(
+    (slot) => slot.rarity_weights,
+  );
 }
 
 function generatePackId() {
@@ -1690,13 +1841,15 @@ function unopenedPacksByType(type) {
 }
 
 function renderStickerFace(sticker) {
+  const displayName = stickerDisplayName(sticker);
+  const position = stickerPositionLabel(sticker);
   if (sticker.src) {
-    return `<span class="opened-sticker-card is-real"><img src="${sticker.src}" alt="${sticker.team_name} ${sticker.album_number}" /></span>`;
+    return `<span class="opened-sticker-card is-real"><img src="${sticker.src}" alt="${sticker.team_name} ${sticker.album_number} ${displayName}" /></span>`;
   }
 
   return `<span class="opened-sticker-card">
     ${sticker.album_number || String(sticker.number).padStart(3, "0")}
-    <small>${sticker.team_name || sticker.teamName || ""}<br>${sticker.rarity_label || ""}</small>
+    <small>${displayName || sticker.team_name || sticker.teamName || ""}<br>${position || sticker.rarity_label || ""}</small>
   </span>`;
 }
 
@@ -1783,18 +1936,20 @@ function renderCollection() {
       const stickerLabel = officialSticker.album_number || String(officialSticker.number || 0).padStart(3, "0");
       const teamName = officialSticker.team_name || officialSticker.teamName || "";
       const rarityLabel = officialSticker.rarity_label || "";
+      const displayName = stickerDisplayName(officialSticker);
+      const position = stickerPositionLabel(officialSticker);
       const displaySticker = { ...officialSticker, inventoryId: sticker.id, count: sticker.count };
       const encodedSticker = stickerJsonAttribute(displaySticker);
       const media = officialSticker.src
-        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${officialSticker.src}" data-sticker-alt="${teamName} ${stickerLabel}" data-sticker-json="${encodedSticker}"><img src="${officialSticker.src}" alt="${teamName} ${stickerLabel}" /></button>`
+        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${officialSticker.src}" data-sticker-alt="${teamName} ${stickerLabel} ${displayName}" data-sticker-json="${encodedSticker}"><img src="${officialSticker.src}" alt="${teamName} ${stickerLabel} ${displayName}" /></button>`
         : `<button class="collection-sticker-button" type="button" data-sticker-json="${encodedSticker}" aria-label="Ampliar ${teamName} ${stickerLabel}">
-            <span class="collection-placeholder">${stickerLabel}<small>${teamName}<br>${rarityLabel}</small></span>
+            <span class="collection-placeholder">${stickerLabel}<small>${displayName || teamName}<br>${position || rarityLabel}</small></span>
           </button>`;
       const badge = duplicateCount > 0 ? `<span class="duplicate-badge">+${duplicateCount}</span>` : "";
       return `<article class="collection-sticker">
         ${media}
         ${badge}
-        <footer>${teamName} ${stickerLabel}</footer>
+        <footer title="${escapeHtml(displayName || `${teamName} ${stickerLabel}`)}">${escapeHtml(displayName || `${teamName} ${stickerLabel}`)}</footer>
       </article>`;
     })
     .join("");

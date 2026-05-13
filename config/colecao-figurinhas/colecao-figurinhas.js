@@ -1,4 +1,4 @@
-const DATA_URL = "/copa_2026_album_figurinhas_48_selecoes_1728_cards.json";
+const DATA_URL = "/copa_2026_album_v4_48_selecoes_safe_prompt_image_player_names.json";
 
 const rarityColors = {
   common: "#cfd5d0",
@@ -64,6 +64,25 @@ function flattenStickers(teams) {
       teamCode: team.code,
       teamGroup: team.group,
     })),
+  );
+}
+
+function stickerPlayerName(sticker) {
+  return sticker.player?.known_as || sticker.player?.full_name || "";
+}
+
+function stickerPosition(sticker) {
+  return sticker.player?.position_label || sticker.role || "";
+}
+
+function stickerPrompt(sticker) {
+  const generation = sticker.image_generation || {};
+  return (
+    generation.safe_prompt_image?.positive_template ||
+    generation.safe_prompt_image?.positive ||
+    generation.symbolic_non_official?.positive ||
+    generation.positive ||
+    "Prompt nao informado."
   );
 }
 
@@ -153,7 +172,13 @@ function renderCards(stickers) {
       : "--";
     const duplicateValue = sticker.duplicate_value ?? "--";
     const foil = sticker.foil ? "Sim" : "Nao";
-    const prompt = sticker.image_generation?.positive || "Prompt nao informado.";
+    const prompt = stickerPrompt(sticker);
+    const playerName = stickerPlayerName(sticker);
+    const position = stickerPosition(sticker);
+    const club = sticker.player?.current_club || "--";
+    const shirt = sticker.player?.shirt_number || "--";
+    const confidence = sticker.player?.data_confidence || "--";
+    const review = sticker.player?.needs_review_on_final_squad ? "Sim" : "Nao";
 
     card.innerHTML = `
       <header>
@@ -164,14 +189,20 @@ function renderCards(stickers) {
         <button class="copy-json-button" type="button">Copiar JSON</button>
       </header>
       <h2>${escapeHtml(sticker.title)}</h2>
-      <p class="role">${escapeHtml(sticker.role)}</p>
+      <p class="role">${escapeHtml(playerName || sticker.role)}</p>
       <div class="meta-grid">
         <span class="meta-box"><span class="meta-label">Selecao</span><span class="meta-value">${escapeHtml(sticker.team_name)}</span></span>
         <span class="meta-box"><span class="meta-label">Grupo</span><span class="meta-value">${escapeHtml(sticker.group)}</span></span>
+        <span class="meta-box"><span class="meta-label">Posicao</span><span class="meta-value">${escapeHtml(position)}</span></span>
+        <span class="meta-box"><span class="meta-label">Clube</span><span class="meta-value">${escapeHtml(club)}</span></span>
+        <span class="meta-box"><span class="meta-label">Camisa</span><span class="meta-value">${escapeHtml(shirt)}</span></span>
         <span class="meta-box"><span class="meta-label">Categoria</span><span class="meta-value">${escapeHtml(sticker.category_code)}</span></span>
+        <span class="meta-box"><span class="meta-label">Tipo</span><span class="meta-value">${escapeHtml(sticker.card_type)}</span></span>
         <span class="meta-box"><span class="meta-label">Drop</span><span class="meta-value">${probability}</span></span>
         <span class="meta-box"><span class="meta-label">Duplicada</span><span class="meta-value">${escapeHtml(duplicateValue)} credito(s)</span></span>
         <span class="meta-box"><span class="meta-label">Foil</span><span class="meta-value">${foil}</span></span>
+        <span class="meta-box"><span class="meta-label">Confianca</span><span class="meta-value">${escapeHtml(confidence)}</span></span>
+        <span class="meta-box"><span class="meta-label">Revisar</span><span class="meta-value">${review}</span></span>
       </div>
       <details class="prompt-details">
         <summary>Prompt de imagem</summary>
@@ -209,7 +240,12 @@ function applyFilters() {
         sticker.team_code,
         sticker.title,
         sticker.role,
+        stickerPlayerName(sticker),
+        sticker.player?.full_name,
+        stickerPosition(sticker),
+        sticker.player?.current_club,
         sticker.category_code,
+        sticker.card_type,
         sticker.rarity_label,
       ].join(" "),
     );

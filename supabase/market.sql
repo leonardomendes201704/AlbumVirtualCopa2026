@@ -17,6 +17,15 @@ create table if not exists public.user_stickers (
   "group" text,
   rarity text,
   rarity_label text,
+  duplicate_value integer,
+  foil boolean not null default false,
+  category_code text,
+  title text,
+  role text,
+  card_type text,
+  player_name text,
+  position_label text,
+  metadata jsonb not null default '{}'::jsonb,
   src text,
   available_count integer not null default 0 check (available_count >= 0),
   reserved_count integer not null default 0 check (reserved_count >= 0),
@@ -35,6 +44,15 @@ create table if not exists public.market_listings (
   "group" text,
   rarity text,
   rarity_label text,
+  duplicate_value integer,
+  foil boolean not null default false,
+  category_code text,
+  title text,
+  role text,
+  card_type text,
+  player_name text,
+  position_label text,
+  metadata jsonb not null default '{}'::jsonb,
   src text,
   price integer not null check (price > 0),
   status text not null default 'active' check (status in ('active', 'sold', 'cancelled')),
@@ -56,6 +74,25 @@ alter table public.profiles enable row level security;
 alter table public.user_stickers enable row level security;
 alter table public.market_listings enable row level security;
 alter table public.market_orders enable row level security;
+
+alter table public.user_stickers add column if not exists duplicate_value integer;
+alter table public.user_stickers add column if not exists foil boolean not null default false;
+alter table public.user_stickers add column if not exists category_code text;
+alter table public.user_stickers add column if not exists title text;
+alter table public.user_stickers add column if not exists role text;
+alter table public.user_stickers add column if not exists card_type text;
+alter table public.user_stickers add column if not exists player_name text;
+alter table public.user_stickers add column if not exists position_label text;
+alter table public.user_stickers add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.market_listings add column if not exists duplicate_value integer;
+alter table public.market_listings add column if not exists foil boolean not null default false;
+alter table public.market_listings add column if not exists category_code text;
+alter table public.market_listings add column if not exists title text;
+alter table public.market_listings add column if not exists role text;
+alter table public.market_listings add column if not exists card_type text;
+alter table public.market_listings add column if not exists player_name text;
+alter table public.market_listings add column if not exists position_label text;
+alter table public.market_listings add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"
@@ -133,6 +170,15 @@ begin
       "group",
       rarity,
       rarity_label,
+      duplicate_value,
+      foil,
+      category_code,
+      title,
+      role,
+      card_type,
+      player_name,
+      position_label,
+      metadata,
       src,
       available_count,
       pasted
@@ -146,6 +192,15 @@ begin
       v_item->>'group',
       v_item->>'rarity',
       v_item->>'rarity_label',
+      nullif(v_item->>'duplicate_value', '')::integer,
+      coalesce((v_item->>'foil')::boolean, false),
+      v_item->>'category_code',
+      v_item->>'title',
+      v_item->>'role',
+      v_item->>'card_type',
+      v_item->>'player_name',
+      v_item->>'position_label',
+      coalesce(v_item->'metadata', '{}'::jsonb),
       v_item->>'src',
       greatest(coalesce((v_item->>'count')::integer, 0), 0),
       coalesce((v_item->>'pasted')::boolean, false)
@@ -157,6 +212,15 @@ begin
           "group" = excluded."group",
           rarity = excluded.rarity,
           rarity_label = excluded.rarity_label,
+          duplicate_value = excluded.duplicate_value,
+          foil = excluded.foil,
+          category_code = excluded.category_code,
+          title = excluded.title,
+          role = excluded.role,
+          card_type = excluded.card_type,
+          player_name = excluded.player_name,
+          position_label = excluded.position_label,
+          metadata = public.user_stickers.metadata || excluded.metadata,
           src = excluded.src,
           available_count = greatest(public.user_stickers.available_count, excluded.available_count),
           pasted = public.user_stickers.pasted or excluded.pasted,
@@ -210,6 +274,15 @@ begin
     "group",
     rarity,
     rarity_label,
+    duplicate_value,
+    foil,
+    category_code,
+    title,
+    role,
+    card_type,
+    player_name,
+    position_label,
+    metadata,
     src,
     price,
     status
@@ -223,6 +296,15 @@ begin
     v_sticker."group",
     v_sticker.rarity,
     v_sticker.rarity_label,
+    v_sticker.duplicate_value,
+    v_sticker.foil,
+    v_sticker.category_code,
+    v_sticker.title,
+    v_sticker.role,
+    v_sticker.card_type,
+    v_sticker.player_name,
+    v_sticker.position_label,
+    v_sticker.metadata,
     v_sticker.src,
     p_price,
     'active'
@@ -346,6 +428,15 @@ begin
     "group",
     rarity,
     rarity_label,
+    duplicate_value,
+    foil,
+    category_code,
+    title,
+    role,
+    card_type,
+    player_name,
+    position_label,
+    metadata,
     src,
     available_count
   )
@@ -358,6 +449,15 @@ begin
     v_listing."group",
     v_listing.rarity,
     v_listing.rarity_label,
+    v_listing.duplicate_value,
+    v_listing.foil,
+    v_listing.category_code,
+    v_listing.title,
+    v_listing.role,
+    v_listing.card_type,
+    v_listing.player_name,
+    v_listing.position_label,
+    v_listing.metadata,
     v_listing.src,
     1
   )
@@ -369,6 +469,15 @@ begin
         "group" = excluded."group",
         rarity = excluded.rarity,
         rarity_label = excluded.rarity_label,
+        duplicate_value = excluded.duplicate_value,
+        foil = excluded.foil,
+        category_code = excluded.category_code,
+        title = excluded.title,
+        role = excluded.role,
+        card_type = excluded.card_type,
+        player_name = excluded.player_name,
+        position_label = excluded.position_label,
+        metadata = public.user_stickers.metadata || excluded.metadata,
         src = excluded.src,
         updated_at = now();
 
