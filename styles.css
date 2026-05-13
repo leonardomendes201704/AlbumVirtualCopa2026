@@ -1524,6 +1524,7 @@ button.sticker-cell {
   color: #fffdf4;
   cursor: pointer;
   font-weight: 900;
+  white-space: normal;
 }
 
 .checkout-method.is-selected {
