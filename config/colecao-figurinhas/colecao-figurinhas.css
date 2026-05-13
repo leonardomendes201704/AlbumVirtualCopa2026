@@ -327,6 +327,7 @@ h1 {
 
 .sticker-card header {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 16px 16px 10px 20px;
@@ -338,7 +339,39 @@ h1 {
 }
 
 .rarity {
+  display: block;
+  margin-top: 4px;
   color: var(--rarity-color, var(--gold));
+}
+
+.copy-json-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  border: 1px solid rgba(214, 161, 45, 0.58);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.48);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 950;
+  padding: 0 0.68rem;
+  text-transform: uppercase;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.copy-json-button:hover,
+.copy-json-button.is-copied {
+  border-color: rgba(214, 161, 45, 0.94);
+  background: rgba(214, 161, 45, 0.18);
+  color: #fff8e9;
+}
+
+.copy-json-button:active {
+  transform: translateY(1px);
 }
 
 .sticker-card h2 {

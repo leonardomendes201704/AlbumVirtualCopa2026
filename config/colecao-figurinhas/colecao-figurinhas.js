@@ -59,6 +59,7 @@ function flattenStickers(teams) {
   return teams.flatMap((team) =>
     team.stickers.map((sticker) => ({
       ...sticker,
+      raw: sticker,
       teamName: team.name,
       teamCode: team.code,
       teamGroup: team.group,
@@ -73,6 +74,34 @@ function setOptions(select, options, labelFn, valueFn = (item) => item) {
     option.textContent = labelFn(item);
     select.append(option);
   });
+}
+
+async function copyStickerJson(button, sticker) {
+  const text = JSON.stringify(sticker.raw, null, 2);
+  const originalLabel = button.textContent;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = "Copiado";
+    button.classList.add("is-copied");
+  } catch {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+    button.textContent = "Copiado";
+    button.classList.add("is-copied");
+  }
+
+  window.setTimeout(() => {
+    button.textContent = originalLabel;
+    button.classList.remove("is-copied");
+  }, 1300);
 }
 
 function renderTeams() {
@@ -128,8 +157,11 @@ function renderCards(stickers) {
 
     card.innerHTML = `
       <header>
-        <span class="album-number">${escapeHtml(sticker.album_number)}</span>
-        <span class="rarity">${escapeHtml(sticker.rarity_label)}</span>
+        <span>
+          <span class="album-number">${escapeHtml(sticker.album_number)}</span>
+          <span class="rarity">${escapeHtml(sticker.rarity_label)}</span>
+        </span>
+        <button class="copy-json-button" type="button">Copiar JSON</button>
       </header>
       <h2>${escapeHtml(sticker.title)}</h2>
       <p class="role">${escapeHtml(sticker.role)}</p>
@@ -146,6 +178,10 @@ function renderCards(stickers) {
         <p>${escapeHtml(prompt)}</p>
       </details>
     `;
+    card.querySelector(".copy-json-button").addEventListener("click", (event) => {
+      event.stopPropagation();
+      copyStickerJson(event.currentTarget, sticker);
+    });
     fragment.append(card);
   });
 
