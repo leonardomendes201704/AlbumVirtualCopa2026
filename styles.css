@@ -1091,6 +1091,10 @@ button.sticker-cell {
   line-height: 1;
 }
 
+.sticker-modal.is-premium .sticker-modal-close {
+  display: none;
+}
+
 .page-badge {
   position: absolute;
   right: 1.7%;
