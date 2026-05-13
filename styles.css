@@ -1241,6 +1241,7 @@ button.sticker-cell {
   background: rgba(0, 0, 0, 0.56);
   color: #fffdf4;
   cursor: pointer;
+  text-decoration: none;
   transition:
     background 160ms ease,
     border-color 160ms ease,

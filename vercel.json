@@ -1,6 +1,12 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/config/colecao-figurinhas",
+      "destination": "/config/colecao-figurinhas/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

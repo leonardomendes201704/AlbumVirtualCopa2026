@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Config - Colecao de Figurinhas</title>
+    <link rel="stylesheet" href="./colecao-figurinhas.css" />
+    <script defer src="./colecao-figurinhas.js"></script>
+  </head>
+  <body>
+    <main class="config-shell">
+      <header class="hero">
+        <nav class="topbar" aria-label="Navegacao">
+          <a class="back-link" href="/">Voltar ao album</a>
+          <span class="route-chip">/config/colecao-figurinhas</span>
+        </nav>
+        <div class="hero-grid">
+          <div>
+            <span class="eyebrow">Config do album</span>
+            <h1>Colecao de figurinhas</h1>
+            <p id="projectDescription">Carregando estrutura da colecao, raridades e dados das selecoes.</p>
+          </div>
+          <section class="summary-grid" aria-label="Resumo da colecao">
+            <article><strong id="totalTeams">--</strong><span>selecoes</span></article>
+            <article><strong id="totalStickers">--</strong><span>figurinhas</span></article>
+            <article><strong id="stickersPerTeam">--</strong><span>por selecao</span></article>
+            <article><strong id="generatedAt">--</strong><span>gerado em</span></article>
+          </section>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="Filtros">
+        <label class="field">
+          <span>Buscar</span>
+          <input id="searchInput" type="search" placeholder="Nome, codigo, titulo, funcao..." />
+        </label>
+        <label class="field">
+          <span>Selecao</span>
+          <select id="teamFilter"><option value="all">Todas as selecoes</option></select>
+        </label>
+        <label class="field">
+          <span>Grupo</span>
+          <select id="groupFilter"><option value="all">Todos os grupos</option></select>
+        </label>
+        <label class="field">
+          <span>Raridade</span>
+          <select id="rarityFilter"><option value="all">Todas as raridades</option></select>
+        </label>
+      </section>
+
+      <section class="content-grid">
+        <aside class="team-panel" aria-label="Selecoes">
+          <div class="panel-heading">
+            <span>Selecoes</span>
+            <strong id="visibleTeamsCount">--</strong>
+          </div>
+          <div id="teamList" class="team-list"></div>
+        </aside>
+
+        <section class="cards-panel" aria-label="Figurinhas">
+          <div class="panel-heading">
+            <div>
+              <span>Figurinhas</span>
+              <strong id="resultCount">--</strong>
+            </div>
+            <button id="clearFilters" class="ghost-button" type="button">Limpar filtros</button>
+          </div>
+          <div id="cardsGrid" class="cards-grid"></div>
+          <p id="emptyState" class="empty-state" hidden>Nenhuma figurinha encontrada com esses filtros.</p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

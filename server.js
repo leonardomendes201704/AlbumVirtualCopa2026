@@ -40,7 +40,7 @@ const server = http.createServer((req, res) => {
 
   const decodedPath = decodeURIComponent(url.pathname);
   const relativePath = decodedPath === "/" ? "index.html" : decodedPath.slice(1);
-  const filePath = path.resolve(root, relativePath);
+  let filePath = path.resolve(root, relativePath);
 
   if (!filePath.startsWith(root)) {
     send(res, 403, "Forbidden");
@@ -48,8 +48,39 @@ const server = http.createServer((req, res) => {
   }
 
   fs.stat(filePath, (statError, stat) => {
+    if (!statError && stat.isDirectory()) {
+      filePath = path.join(filePath, "index.html");
+      fs.readFile(filePath, (readError, file) => {
+        if (readError) {
+          send(res, 404, "Not found");
+          return;
+        }
+
+        res.writeHead(200, {
+          "Content-Type": types[".html"],
+          "Content-Length": file.length,
+          "Cache-Control": "no-store",
+        });
+        res.end(file);
+      });
+      return;
+    }
+
     if (statError || !stat.isFile()) {
-      send(res, 404, "Not found");
+      const indexPath = path.join(root, relativePath, "index.html");
+      fs.readFile(indexPath, (indexError, file) => {
+        if (!indexError) {
+          res.writeHead(200, {
+            "Content-Type": types[".html"],
+            "Content-Length": file.length,
+            "Cache-Control": "no-store",
+          });
+          res.end(file);
+          return;
+        }
+
+        send(res, 404, "Not found");
+      });
       return;
     }
 
