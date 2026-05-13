@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Album Copa - Revista</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./vendor/page-flip.browser.min.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="magazine-stage" aria-label="Visualizador em formato de revista">
+        <button id="coverView" class="cover-view" type="button" aria-label="Abrir revista">
+          <span class="page cover image-cover">
+            <img src="./Paginas/Capa.png" alt="Capa do album" />
+          </span>
+        </button>
+        <div id="book" class="book" aria-live="polite"></div>
+      </section>
+
+      <nav class="toolbar" aria-label="Controles da revista">
+        <button class="icon-button" id="prevPage" type="button" aria-label="Pagina anterior" title="Pagina anterior">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <div class="page-status" id="pageStatus">Capa</div>
+        <button class="icon-button" id="nextPage" type="button" aria-label="Proxima pagina" title="Proxima pagina">
+          <span aria-hidden="true">›</span>
+        </button>
+      </nav>
+    </main>
+
+    <div id="stickerModal" class="sticker-modal" aria-hidden="true">
+      <button class="sticker-modal-backdrop" type="button" aria-label="Fechar figurinha"></button>
+      <div class="sticker-modal-card" role="dialog" aria-modal="true" aria-label="Figurinha ampliada">
+        <button class="sticker-modal-close" type="button" aria-label="Fechar figurinha">×</button>
+        <img id="stickerModalImage" alt="" />
+      </div>
+    </div>
+  </body>
+</html>
