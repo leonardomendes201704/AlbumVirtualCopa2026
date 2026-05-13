@@ -1194,12 +1194,32 @@ async function ensureSupabaseProfile() {
 async function syncLocalInventoryToSupabase() {
   if (!supabaseClient || !supabaseUser) return;
 
-  const stickers = Object.values(openedStickers)
+  const stickerMap = new Map();
+
+  Object.values(openedStickers)
     .filter((sticker) => sticker?.id && Number(sticker.count || 0) > 0)
-    .map((sticker) => ({
-      ...marketStickerPayload(sticker),
-      count: Number(sticker.count || 0),
-    }));
+    .forEach((sticker) => {
+      const payload = marketStickerPayload(sticker);
+      stickerMap.set(payload.id, {
+        ...payload,
+        count: Number(sticker.count || 0),
+        pasted: false,
+      });
+    });
+
+  Object.values(pastedStickers)
+    .filter((sticker) => sticker?.id)
+    .forEach((sticker) => {
+      const payload = marketStickerPayload(sticker);
+      const current = stickerMap.get(payload.id);
+      stickerMap.set(payload.id, {
+        ...payload,
+        count: current?.count || 0,
+        pasted: true,
+      });
+    });
+
+  const stickers = [...stickerMap.values()];
 
   const { error } = await supabaseClient.rpc("sync_user_snapshot", {
     p_credits: creditBalance,
@@ -1714,6 +1734,7 @@ function pasteCurrentSticker() {
 
   savePastedStickers();
   saveOpenedStickers();
+  if (supabaseClient) syncLocalInventoryToSupabase().catch(() => {});
   renderCollection();
   updateStickerActionBar();
   collectionMessage.textContent = "Figurinha colada no album.";

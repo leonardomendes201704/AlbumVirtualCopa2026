@@ -134,7 +134,8 @@ begin
       rarity,
       rarity_label,
       src,
-      available_count
+      available_count,
+      pasted
     )
     values (
       v_user,
@@ -146,7 +147,8 @@ begin
       v_item->>'rarity',
       v_item->>'rarity_label',
       v_item->>'src',
-      greatest(coalesce((v_item->>'count')::integer, 0), 0)
+      greatest(coalesce((v_item->>'count')::integer, 0), 0),
+      coalesce((v_item->>'pasted')::boolean, false)
     )
     on conflict (user_id, sticker_id) do update
       set album_number = excluded.album_number,
@@ -157,6 +159,7 @@ begin
           rarity_label = excluded.rarity_label,
           src = excluded.src,
           available_count = greatest(public.user_stickers.available_count, excluded.available_count),
+          pasted = public.user_stickers.pasted or excluded.pasted,
           updated_at = now();
   end loop;
 end;
