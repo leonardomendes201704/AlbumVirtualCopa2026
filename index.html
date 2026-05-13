@@ -30,7 +30,7 @@
       </nav>
 
       <aside class="side-rail" aria-label="Menu do album">
-        <button class="rail-button" type="button" aria-label="Loja" title="Loja">
+        <button class="rail-button" id="openShop" type="button" aria-label="Loja" title="Loja">
           <span class="rail-icon" aria-hidden="true">◆</span>
           <span class="rail-label">Loja</span>
         </button>
@@ -52,6 +52,68 @@
         </button>
       </aside>
     </main>
+
+    <section id="shopPanel" class="shop-panel" aria-hidden="true">
+      <button class="shop-backdrop" type="button" aria-label="Fechar loja"></button>
+      <div class="shop-drawer" role="dialog" aria-modal="true" aria-label="Loja de figurinhas">
+        <header class="shop-header">
+          <div>
+            <span>Album Copa 2026</span>
+            <h2>Loja</h2>
+          </div>
+          <button class="shop-close" type="button" aria-label="Fechar loja">×</button>
+        </header>
+
+        <div class="shop-wallet">
+          <span>Saldo de creditos</span>
+          <strong><span id="creditBalance">0</span> CR</strong>
+        </div>
+
+        <section class="shop-section" aria-labelledby="creditTitle">
+          <h3 id="creditTitle">Comprar creditos</h3>
+          <div class="shop-grid">
+            <button class="shop-card credit-card" type="button" data-credits="100">
+              <strong>100 CR</strong>
+              <span>Pacote inicial</span>
+              <em>R$ 4,90</em>
+            </button>
+            <button class="shop-card credit-card" type="button" data-credits="300">
+              <strong>300 CR</strong>
+              <span>Mais popular</span>
+              <em>R$ 12,90</em>
+            </button>
+            <button class="shop-card credit-card" type="button" data-credits="700">
+              <strong>700 CR</strong>
+              <span>Melhor valor</span>
+              <em>R$ 24,90</em>
+            </button>
+          </div>
+        </section>
+
+        <section class="shop-section" aria-labelledby="packTitle">
+          <h3 id="packTitle">Pacotes de figurinhas</h3>
+          <div class="shop-grid">
+            <button class="shop-card pack-card" type="button" data-cost="25" data-pack="Bronze">
+              <strong>Bronze</strong>
+              <span>3 figurinhas</span>
+              <em>25 CR</em>
+            </button>
+            <button class="shop-card pack-card" type="button" data-cost="60" data-pack="Prata">
+              <strong>Prata</strong>
+              <span>8 figurinhas</span>
+              <em>60 CR</em>
+            </button>
+            <button class="shop-card pack-card" type="button" data-cost="120" data-pack="Ouro">
+              <strong>Ouro</strong>
+              <span>18 figurinhas</span>
+              <em>120 CR</em>
+            </button>
+          </div>
+        </section>
+
+        <p id="shopMessage" class="shop-message" role="status">Escolha creditos ou pacotes para comecar.</p>
+      </div>
+    </section>
 
     <div id="stickerModal" class="sticker-modal" aria-hidden="true">
       <button class="sticker-modal-backdrop" type="button" aria-label="Fechar figurinha"></button>

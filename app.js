@@ -233,11 +233,18 @@ const stickerModal = document.querySelector("#stickerModal");
 const stickerModalImage = document.querySelector("#stickerModalImage");
 const stickerModalClose = document.querySelector(".sticker-modal-close");
 const stickerModalBackdrop = document.querySelector(".sticker-modal-backdrop");
+const openShopButton = document.querySelector("#openShop");
+const shopPanel = document.querySelector("#shopPanel");
+const shopCloseButton = document.querySelector(".shop-close");
+const shopBackdrop = document.querySelector(".shop-backdrop");
+const creditBalanceElement = document.querySelector("#creditBalance");
+const shopMessage = document.querySelector("#shopMessage");
 
 let pageFlip;
 let resizeTimer;
 let isCoverClosed = true;
 let stickersByTeam = new Map();
+let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 
 function teamKey(value) {
   return value
@@ -836,7 +843,58 @@ function closeStickerModal() {
 stickerModalClose.addEventListener("click", closeStickerModal);
 stickerModalBackdrop.addEventListener("click", closeStickerModal);
 
+function updateCredits(message) {
+  creditBalanceElement.textContent = String(creditBalance);
+  localStorage.setItem("albumCredits", String(creditBalance));
+  if (message) shopMessage.textContent = message;
+}
+
+function openShop() {
+  updateCredits();
+  shopPanel.classList.add("is-open");
+  shopPanel.setAttribute("aria-hidden", "false");
+}
+
+function closeShop() {
+  shopPanel.classList.remove("is-open");
+  shopPanel.setAttribute("aria-hidden", "true");
+}
+
+openShopButton.addEventListener("click", openShop);
+shopCloseButton.addEventListener("click", closeShop);
+shopBackdrop.addEventListener("click", closeShop);
+
+document.querySelectorAll(".credit-card").forEach((button) => {
+  button.addEventListener("click", () => {
+    const credits = Number(button.dataset.credits);
+    creditBalance += credits;
+    updateCredits(`${credits} creditos adicionados ao saldo.`);
+  });
+});
+
+document.querySelectorAll(".pack-card").forEach((button) => {
+  button.addEventListener("click", () => {
+    const cost = Number(button.dataset.cost);
+    const pack = button.dataset.pack;
+
+    if (creditBalance < cost) {
+      updateCredits(`Saldo insuficiente para o pacote ${pack}.`);
+      return;
+    }
+
+    creditBalance -= cost;
+    updateCredits(`Pacote ${pack} comprado. As novas figurinhas serao abertas em breve.`);
+  });
+});
+
+updateCredits();
+
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && shopPanel.classList.contains("is-open")) {
+    closeShop();
+    return;
+  }
+
   if (event.key === "Escape" && stickerModal.classList.contains("is-open")) {
     closeStickerModal();
     return;
