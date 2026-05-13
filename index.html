@@ -115,6 +115,56 @@
       </div>
     </section>
 
+    <section id="checkoutModal" class="checkout-modal" aria-hidden="true">
+      <button class="checkout-backdrop" type="button" aria-label="Fechar checkout"></button>
+      <div class="checkout-card" role="dialog" aria-modal="true" aria-label="Checkout">
+        <header class="checkout-header">
+          <div>
+            <span>Checkout</span>
+            <h2>Finalizar compra</h2>
+          </div>
+          <button class="checkout-close" type="button" aria-label="Fechar checkout">×</button>
+        </header>
+
+        <div class="checkout-summary">
+          <span>Produto</span>
+          <strong id="checkoutProduct">-</strong>
+          <span>Valor</span>
+          <strong id="checkoutPrice">-</strong>
+        </div>
+
+        <div class="checkout-methods" aria-label="Forma de pagamento">
+          <button class="checkout-method is-selected" type="button">Cartao</button>
+          <button class="checkout-method" type="button">Pix</button>
+          <button class="checkout-method" type="button">Carteira</button>
+        </div>
+
+        <div class="checkout-form">
+          <label>
+            Nome no cartao
+            <input type="text" value="Colecionador Copa" />
+          </label>
+          <label>
+            Numero do cartao
+            <input type="text" value="4242 4242 4242 4242" />
+          </label>
+          <div class="checkout-form-row">
+            <label>
+              Validade
+              <input type="text" value="12/30" />
+            </label>
+            <label>
+              CVV
+              <input type="text" value="123" />
+            </label>
+          </div>
+        </div>
+
+        <button id="confirmCheckout" class="checkout-confirm" type="button">Pagar agora</button>
+        <p class="checkout-note">Pagamento mock. Pronto para integrar com um gateway real.</p>
+      </div>
+    </section>
+
     <div id="stickerModal" class="sticker-modal" aria-hidden="true">
       <button class="sticker-modal-backdrop" type="button" aria-label="Fechar figurinha"></button>
       <div class="sticker-modal-card" role="dialog" aria-modal="true" aria-label="Figurinha ampliada">

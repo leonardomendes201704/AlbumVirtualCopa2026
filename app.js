@@ -239,12 +239,19 @@ const shopCloseButton = document.querySelector(".shop-close");
 const shopBackdrop = document.querySelector(".shop-backdrop");
 const creditBalanceElement = document.querySelector("#creditBalance");
 const shopMessage = document.querySelector("#shopMessage");
+const checkoutModal = document.querySelector("#checkoutModal");
+const checkoutBackdrop = document.querySelector(".checkout-backdrop");
+const checkoutCloseButton = document.querySelector(".checkout-close");
+const checkoutProduct = document.querySelector("#checkoutProduct");
+const checkoutPrice = document.querySelector("#checkoutPrice");
+const confirmCheckoutButton = document.querySelector("#confirmCheckout");
 
 let pageFlip;
 let resizeTimer;
 let isCoverClosed = true;
 let stickersByTeam = new Map();
 let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
+let pendingCheckout = null;
 
 function teamKey(value) {
   return value
@@ -867,8 +874,16 @@ shopBackdrop.addEventListener("click", closeShop);
 document.querySelectorAll(".credit-card").forEach((button) => {
   button.addEventListener("click", () => {
     const credits = Number(button.dataset.credits);
-    creditBalance += credits;
-    updateCredits(`${credits} creditos adicionados ao saldo.`);
+    const price = button.querySelector("em")?.textContent ?? "R$ 0,00";
+    pendingCheckout = {
+      credits,
+      price,
+      product: `${credits} creditos`,
+    };
+    checkoutProduct.textContent = pendingCheckout.product;
+    checkoutPrice.textContent = pendingCheckout.price;
+    checkoutModal.classList.add("is-open");
+    checkoutModal.setAttribute("aria-hidden", "false");
   });
 });
 
@@ -889,7 +904,36 @@ document.querySelectorAll(".pack-card").forEach((button) => {
 
 updateCredits();
 
+function closeCheckout() {
+  checkoutModal.classList.remove("is-open");
+  checkoutModal.setAttribute("aria-hidden", "true");
+}
+
+checkoutCloseButton.addEventListener("click", closeCheckout);
+checkoutBackdrop.addEventListener("click", closeCheckout);
+
+document.querySelectorAll(".checkout-method").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".checkout-method").forEach((method) => method.classList.remove("is-selected"));
+    button.classList.add("is-selected");
+  });
+});
+
+confirmCheckoutButton.addEventListener("click", () => {
+  if (!pendingCheckout) return;
+
+  creditBalance += pendingCheckout.credits;
+  updateCredits(`Pagamento aprovado. ${pendingCheckout.credits} creditos adicionados ao saldo.`);
+  closeCheckout();
+  pendingCheckout = null;
+});
+
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && checkoutModal.classList.contains("is-open")) {
+    closeCheckout();
+    return;
+  }
+
   if (event.key === "Escape" && shopPanel.classList.contains("is-open")) {
     closeShop();
     return;
