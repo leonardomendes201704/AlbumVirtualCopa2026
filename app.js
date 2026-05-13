@@ -262,9 +262,8 @@ const inventoryModal = document.querySelector("#inventoryModal");
 const inventoryBackdrop = document.querySelector(".inventory-backdrop");
 const inventoryCloseButton = document.querySelector(".inventory-close");
 const inventoryTotalElement = document.querySelector("#inventoryTotal");
-const commonPackCountElement = document.querySelector("#commonPackCount");
-const mixedPackCountElement = document.querySelector("#mixedPackCount");
-const specialPackCountElement = document.querySelector("#specialPackCount");
+const standardPackCountElement = document.querySelector("#standardPackCount");
+const premiumPackCountElement = document.querySelector("#premiumPackCount");
 const openedPackResult = document.querySelector("#openedPackResult");
 const inventoryMessage = document.querySelector("#inventoryMessage");
 const openCollectionButton = document.querySelector("#openCollection");
@@ -279,22 +278,43 @@ let pageFlip;
 let resizeTimer;
 let isCoverClosed = true;
 let stickersByTeam = new Map();
+let stickerCatalog = {
+  packConfig: null,
+  stickers: [],
+  byRarity: new Map(),
+};
 let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
-let packInventory = JSON.parse(localStorage.getItem("albumPackInventory") || '{"Comum":0,"Sortido":0,"Especial":0}');
+let packInventory = loadPackInventory();
 let openedStickers = JSON.parse(localStorage.getItem("albumOpenedStickers") || "{}");
+let packPity = JSON.parse(
+  localStorage.getItem("albumPackPity") || '{"withoutEpicOrBetter":0,"withoutLegendary":0}',
+);
 let selectedPack = {
-  type: "Comum",
-  cost: 20,
-  stickers: 3,
+  type: "standard_pack",
+  name: "Pacotinho Padrão",
+  cost: 35,
+  stickers: 5,
 };
 
 const packTypeConfig = {
-  Comum: { stickers: 3 },
-  Sortido: { stickers: 7 },
-  Especial: { stickers: 15 },
+  standard_pack: { name: "Pacotinho Padrão", stickers: 5 },
+  premium_pack: { name: "Pacotinho Premium", stickers: 7 },
 };
+
+function loadPackInventory() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("albumPackInventory") || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePackPity() {
+  localStorage.setItem("albumPackPity", JSON.stringify(packPity));
+}
 
 function teamKey(value) {
   return value
@@ -324,6 +344,58 @@ async function loadStickers() {
   } catch {
     return new Map();
   }
+}
+
+async function loadStickerCatalog() {
+  try {
+    const response = await fetch("./copa_2026_album_figurinhas_48_selecoes_1728_cards.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("Catalogo indisponivel.");
+
+    const data = await response.json();
+    const stickers = (data.teams || []).flatMap((team) =>
+      (team.stickers || []).map((sticker) => normalizeCatalogSticker(sticker)),
+    );
+    const byRarity = stickers.reduce((rarities, sticker) => {
+      if (!rarities.has(sticker.rarity)) rarities.set(sticker.rarity, []);
+      rarities.get(sticker.rarity).push(sticker);
+      return rarities;
+    }, new Map());
+
+    return {
+      packConfig: data.pack_config || null,
+      stickers,
+      byRarity,
+    };
+  } catch {
+    return {
+      packConfig: null,
+      stickers: [],
+      byRarity: new Map(),
+    };
+  }
+}
+
+function normalizeCatalogSticker(sticker) {
+  const number = Number(String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
+  const stickerFile = stickersByTeam.get(teamKey(sticker.team_name || ""))?.get(number);
+
+  return {
+    id: sticker.id,
+    album_number: sticker.album_number,
+    team_code: sticker.team_code,
+    team_name: sticker.team_name,
+    group: sticker.group,
+    rarity: sticker.rarity,
+    rarity_label: sticker.rarity_label,
+    duplicate_value: sticker.duplicate_value,
+    foil: sticker.foil,
+    title: sticker.title,
+    role: sticker.role,
+    category_code: sticker.category_code,
+    teamName: sticker.team_name,
+    number,
+    src: stickerFile ? `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}` : "",
+  };
 }
 
 function waitForPageFlip() {
@@ -784,6 +856,7 @@ function renderError(message) {
 async function createMagazine(startPage = 0) {
   const PageFlip = await waitForPageFlip();
   stickersByTeam = await loadStickers();
+  stickerCatalog = await loadStickerCatalog();
   const { width, height } = pageSize();
   const pages = buildPages();
   applyPageSize(width, height);
@@ -966,24 +1039,121 @@ function savePackInventory() {
   localStorage.setItem("albumPackInventory", JSON.stringify(packInventory));
 }
 
-function stickerPool() {
-  const pool = [];
-  imageFiles.forEach((fileName) => {
-    const teamName = fileName.replace(".png", "");
-    const teamPageCount = pagesForTeam(fileName);
-    const totalSlots = teamPageCount * 9;
-    for (let number = 1; number <= totalSlots; number += 1) {
-      const teamStickers = stickersByTeam.get(teamKey(fileName));
-      const stickerFile = teamStickers?.get(number);
-      pool.push({
-        id: `${teamKey(teamName)}-${String(number).padStart(3, "0")}`,
-        teamName,
-        number,
-        src: stickerFile ? `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}` : "",
-      });
-    }
-  });
-  return pool;
+function weightedChoice(weights) {
+  const entries = Object.entries(weights || {}).filter(([, weight]) => Number(weight) > 0);
+  const total = entries.reduce((sum, [, weight]) => sum + Number(weight), 0);
+  if (total <= 0) return null;
+
+  let cursor = Math.random() * total;
+  for (const [key, weight] of entries) {
+    cursor -= Number(weight);
+    if (cursor <= 0) return key;
+  }
+
+  return entries[entries.length - 1]?.[0] ?? null;
+}
+
+function randomStickerByRarity(rarity) {
+  const pool = stickerCatalog.byRarity.get(rarity) || [];
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function drawStickerFromWeights(weights) {
+  const rarity = weightedChoice(weights);
+  return rarity ? randomStickerByRarity(rarity) : null;
+}
+
+function premiumSlots() {
+  const weights = stickerCatalog.packConfig?.premium_pack?.suggested_rarity_weights;
+  if (!weights) return [];
+
+  return [
+    ...Array.from({ length: 4 }, () => weights.base_slots),
+    ...Array.from({ length: 2 }, () => weights.special_slots),
+    weights.epic_plus_slot,
+  ];
+}
+
+function standardSlots() {
+  return (stickerCatalog.packConfig?.default_pack?.slots || []).map((slot) => slot.rarity_weights);
+}
+
+function generatePackId() {
+  return window.crypto?.randomUUID?.() || `pack-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function hasEpicOrBetter(stickers) {
+  return stickers.some((sticker) => sticker.rarity === "epic" || sticker.rarity === "legendary");
+}
+
+function hasLegendary(stickers) {
+  return stickers.some((sticker) => sticker.rarity === "legendary");
+}
+
+function updatePityAfterStandardPack(stickers) {
+  const pityConfig = stickerCatalog.packConfig?.default_pack?.pity_system;
+  if (!pityConfig?.enabled) return;
+
+  packPity.withoutEpicOrBetter = hasEpicOrBetter(stickers) ? 0 : (packPity.withoutEpicOrBetter || 0) + 1;
+  packPity.withoutLegendary = hasLegendary(stickers) ? 0 : (packPity.withoutLegendary || 0) + 1;
+  savePackPity();
+}
+
+function applyStandardPity(stickers) {
+  const pityConfig = stickerCatalog.packConfig?.default_pack?.pity_system;
+  if (!pityConfig?.enabled || !stickers.length) return stickers;
+
+  const shouldForceLegendary =
+    !hasLegendary(stickers) &&
+    (packPity.withoutLegendary || 0) + 1 >= pityConfig.guarantee_legendary_after_packs_without_legendary;
+  const shouldForceEpic =
+    !shouldForceLegendary &&
+    !hasEpicOrBetter(stickers) &&
+    (packPity.withoutEpicOrBetter || 0) + 1 >= pityConfig.guarantee_epic_after_packs_without_epic_or_better;
+
+  if (shouldForceLegendary) {
+    stickers[stickers.length - 1] = randomStickerByRarity("legendary") || stickers[stickers.length - 1];
+  } else if (shouldForceEpic) {
+    stickers[stickers.length - 1] =
+      drawStickerFromWeights({ epic: 9000, legendary: 1000 }) || stickers[stickers.length - 1];
+  }
+
+  return stickers;
+}
+
+function createPurchasedPack(type) {
+  const slots = type === "premium_pack" ? premiumSlots() : standardSlots();
+  const stickers = slots.map((weights) => drawStickerFromWeights(weights)).filter(Boolean);
+  const finalStickers = type === "standard_pack" ? applyStandardPity(stickers) : stickers;
+
+  if (type === "standard_pack") {
+    updatePityAfterStandardPack(finalStickers);
+  }
+
+  return {
+    packId: generatePackId(),
+    type,
+    name: packTypeConfig[type].name,
+    purchasedAt: new Date().toISOString(),
+    opened: false,
+    stickers: finalStickers,
+  };
+}
+
+function unopenedPacksByType(type) {
+  return packInventory.filter((pack) => pack.type === type && !pack.opened);
+}
+
+function renderStickerFace(sticker) {
+  if (sticker.src) {
+    return `<span class="opened-sticker-card is-real"><img src="${sticker.src}" alt="${sticker.team_name} ${sticker.album_number}" /></span>`;
+  }
+
+  return `<span class="opened-sticker-card">
+    ${sticker.album_number || String(sticker.number).padStart(3, "0")}
+    <small>${sticker.team_name || sticker.teamName || ""}<br>${sticker.rarity_label || ""}</small>
+  </span>`;
 }
 
 function saveOpenedStickers() {
@@ -1000,14 +1170,13 @@ function addOpenedSticker(sticker) {
 }
 
 function updateInventory(message) {
-  const total = Object.values(packInventory).reduce((sum, count) => sum + count, 0);
+  const total = packInventory.filter((pack) => !pack.opened).length;
   inventoryTotalElement.textContent = String(total);
-  commonPackCountElement.textContent = String(packInventory.Comum || 0);
-  mixedPackCountElement.textContent = String(packInventory.Sortido || 0);
-  specialPackCountElement.textContent = String(packInventory.Especial || 0);
+  standardPackCountElement.textContent = String(unopenedPacksByType("standard_pack").length);
+  premiumPackCountElement.textContent = String(unopenedPacksByType("premium_pack").length);
 
   document.querySelectorAll(".open-pack-button").forEach((button) => {
-    button.disabled = (packInventory[button.dataset.type] || 0) === 0;
+    button.disabled = unopenedPacksByType(button.dataset.type).length === 0;
   });
 
   if (message) inventoryMessage.textContent = message;
@@ -1021,22 +1190,25 @@ function openInventoryModal() {
 
 function renderCollection() {
   const stickers = Object.values(openedStickers).sort((a, b) => {
-    const teamCompare = a.teamName.localeCompare(b.teamName, "pt-BR");
-    return teamCompare || a.number - b.number;
+    const teamCompare = (a.team_name || a.teamName || "").localeCompare(b.team_name || b.teamName || "", "pt-BR");
+    return teamCompare || (a.number || 0) - (b.number || 0);
   });
 
   collectionUniqueTotal.textContent = String(stickers.length);
   collectionGrid.innerHTML = stickers
     .map((sticker) => {
       const duplicateCount = Math.max(0, sticker.count - 1);
+      const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
+      const teamName = sticker.team_name || sticker.teamName || "";
+      const rarityLabel = sticker.rarity_label || "";
       const media = sticker.src
-        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${sticker.src}" data-sticker-alt="${sticker.teamName} ${sticker.number}"><img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" /></button>`
-        : `<span class="collection-placeholder">${String(sticker.number).padStart(3, "0")}</span>`;
+        ? `<button class="collection-sticker-button" type="button" data-sticker-src="${sticker.src}" data-sticker-alt="${teamName} ${stickerLabel}"><img src="${sticker.src}" alt="${teamName} ${stickerLabel}" /></button>`
+        : `<span class="collection-placeholder">${stickerLabel}<small>${teamName}<br>${rarityLabel}</small></span>`;
       const badge = duplicateCount > 0 ? `<span class="duplicate-badge">+${duplicateCount}</span>` : "";
       return `<article class="collection-sticker">
         ${media}
         ${badge}
-        <footer>${sticker.teamName} ${String(sticker.number).padStart(3, "0")}</footer>
+        <footer>${teamName} ${stickerLabel}</footer>
       </article>`;
     })
     .join("");
@@ -1083,10 +1255,11 @@ document.querySelectorAll(".pack-type").forEach((button) => {
     button.classList.add("is-selected");
     selectedPack = {
       type: button.dataset.type,
+      name: packTypeConfig[button.dataset.type].name,
       cost: Number(button.dataset.cost),
       stickers: Number(button.dataset.stickers),
     };
-    updatePacksSummary(`Tipo selecionado: ${selectedPack.type}.`);
+    updatePacksSummary(`Tipo selecionado: ${selectedPack.name}.`);
   });
 });
 
@@ -1105,13 +1278,18 @@ packQuantityInput.addEventListener("input", () => updatePacksSummary());
 confirmPackPurchaseButton.addEventListener("click", () => {
   const quantity = clampPackQuantity(packQuantityInput.value);
   if (quantity === 0) return;
+  if (!stickerCatalog.stickers.length) {
+    updatePacksSummary("Catalogo oficial de figurinhas ainda nao carregou.");
+    return;
+  }
 
   const totalCost = quantity * selectedPack.cost;
   creditBalance -= totalCost;
-  packInventory[selectedPack.type] = (packInventory[selectedPack.type] || 0) + quantity;
+  const purchasedPacks = Array.from({ length: quantity }, () => createPurchasedPack(selectedPack.type));
+  packInventory = [...packInventory, ...purchasedPacks];
   savePackInventory();
   updateCredits();
-  updatePacksSummary(`${quantity} pacotinho(s) ${selectedPack.type} comprado(s) e salvo(s) no inventario.`);
+  updatePacksSummary(`${quantity} ${selectedPack.name}(s) comprado(s) com figurinhas ja sorteadas.`);
   updateInventory();
 });
 
@@ -1122,28 +1300,25 @@ inventoryBackdrop.addEventListener("click", closeInventoryModal);
 document.querySelectorAll(".open-pack-button").forEach((button) => {
   button.addEventListener("click", () => {
     const type = button.dataset.type;
-    const available = packInventory[type] || 0;
-    if (available <= 0) {
-      updateInventory(`Voce nao possui pacotinhos ${type}.`);
+    const packIndex = packInventory.findIndex((pack) => pack.type === type && !pack.opened);
+    if (packIndex < 0) {
+      updateInventory(`Voce nao possui ${packTypeConfig[type].name}.`);
       return;
     }
 
-    packInventory[type] = available - 1;
+    const pack = packInventory[packIndex];
+    packInventory[packIndex] = {
+      ...pack,
+      opened: true,
+      openedAt: new Date().toISOString(),
+    };
     savePackInventory();
 
-    const stickerCount = packTypeConfig[type].stickers;
-    const pool = stickerPool();
-    const opened = Array.from({ length: stickerCount }, () => pool[Math.floor(Math.random() * pool.length)]);
+    const opened = pack.stickers || [];
     opened.forEach(addOpenedSticker);
     saveOpenedStickers();
-    openedPackResult.innerHTML = opened.map((sticker) => {
-      if (sticker.src) {
-        return `<span class="opened-sticker-card is-real"><img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" /></span>`;
-      }
-
-      return `<span class="opened-sticker-card">${String(sticker.number).padStart(3, "0")}</span>`;
-    }).join("");
-    updateInventory(`Pacotinho ${type} aberto: ${stickerCount} figurinha(s) revelada(s).`);
+    openedPackResult.innerHTML = opened.map(renderStickerFace).join("");
+    updateInventory(`${pack.name} aberto: ${opened.length} figurinha(s) revelada(s).`);
   });
 });
 

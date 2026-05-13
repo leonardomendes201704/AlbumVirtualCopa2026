@@ -1712,7 +1712,7 @@ button.sticker-cell {
 
 .pack-types {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1897,6 +1897,16 @@ button.sticker-cell {
   object-fit: cover;
 }
 
+.opened-sticker-card small {
+  display: block;
+  max-width: 100%;
+  padding: 0 4px;
+  color: rgba(255, 253, 244, 0.82);
+  font-size: 0.52rem;
+  line-height: 1.08;
+  text-align: center;
+}
+
 .collection-card {
   width: min(760px, calc(100vw - 28px));
 }
@@ -1936,6 +1946,21 @@ button.sticker-cell {
   font-weight: 950;
   object-fit: cover;
   overflow: hidden;
+}
+
+.collection-placeholder {
+  padding: 8px;
+  font-size: 0.78rem;
+  line-height: 1.12;
+  text-align: center;
+}
+
+.collection-placeholder small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 253, 244, 0.78);
+  font-size: 0.58rem;
+  line-height: 1.1;
 }
 
 .collection-sticker footer {
