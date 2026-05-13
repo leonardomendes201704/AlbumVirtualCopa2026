@@ -1,0 +1,12 @@
+{
+  "name": "album-virtual-copa-2026",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "generate:figurinhas": "node generate-figurinhas-manifest.js"
+  },
+  "dependencies": {
+    "stripe": "^17.7.0"
+  }
+}

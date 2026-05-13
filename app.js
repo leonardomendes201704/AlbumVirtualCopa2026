@@ -252,6 +252,7 @@ let isCoverClosed = true;
 let stickersByTeam = new Map();
 let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 let pendingCheckout = null;
+const checkoutParams = new URLSearchParams(window.location.search);
 
 function teamKey(value) {
   return value
@@ -831,6 +832,30 @@ function updateCredits(message) {
   if (message) shopMessage.textContent = message;
 }
 
+function applyCheckoutReturn() {
+  const status = checkoutParams.get("checkout");
+  const credits = Number(checkoutParams.get("credits") || 0);
+
+  if (status === "success" && credits > 0) {
+    const lastApplied = sessionStorage.getItem("lastCheckoutCredits");
+    const currentMarker = `${status}:${credits}`;
+
+    if (lastApplied !== currentMarker) {
+      creditBalance += credits;
+      sessionStorage.setItem("lastCheckoutCredits", currentMarker);
+      updateCredits(`Pagamento aprovado pela Stripe. ${credits} creditos adicionados.`);
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
+    return;
+  }
+
+  if (status === "cancel") {
+    updateCredits("Pagamento cancelado. Nenhum credito foi adicionado.");
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+}
+
 function openShop() {
   updateCredits();
   shopPanel.classList.add("is-open");
@@ -897,11 +922,31 @@ document.querySelectorAll(".checkout-method").forEach((button) => {
 confirmCheckoutButton.addEventListener("click", () => {
   if (!pendingCheckout) return;
 
-  creditBalance += pendingCheckout.credits;
-  updateCredits(`Pagamento aprovado. ${pendingCheckout.credits} creditos adicionados ao saldo.`);
-  closeCheckout();
-  pendingCheckout = null;
+  confirmCheckoutButton.disabled = true;
+  confirmCheckoutButton.textContent = "Abrindo Stripe...";
+
+  fetch("/api/create-checkout-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      credits: pendingCheckout.credits,
+    }),
+  })
+    .then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Nao foi possivel iniciar o checkout.");
+      window.location.href = data.url;
+    })
+    .catch((error) => {
+      updateCredits(error.message);
+      confirmCheckoutButton.disabled = false;
+      confirmCheckoutButton.textContent = "Pagar agora";
+    });
 });
+
+applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && checkoutModal.classList.contains("is-open")) {
