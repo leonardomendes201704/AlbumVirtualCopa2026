@@ -231,6 +231,7 @@ const previousButton = document.querySelector("#prevPage");
 const nextButton = document.querySelector("#nextPage");
 const stickerModal = document.querySelector("#stickerModal");
 const stickerModalImage = document.querySelector("#stickerModalImage");
+const stickerModalPlaceholder = document.querySelector("#stickerModalPlaceholder");
 const stickerModalClose = document.querySelector(".sticker-modal-close");
 const stickerModalBackdrop = document.querySelector(".sticker-modal-backdrop");
 const openShopButton = document.querySelector("#openShop");
@@ -396,6 +397,15 @@ function normalizeCatalogSticker(sticker) {
     number,
     src: stickerFile ? `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}` : "",
   };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function waitForPageFlip() {
@@ -841,7 +851,31 @@ function openPremiumSticker(src, alt) {
 
   stickerModalImage.src = src;
   stickerModalImage.alt = alt || "Figurinha ampliada";
+  stickerModalImage.hidden = false;
+  stickerModalPlaceholder.hidden = true;
+  stickerModalPlaceholder.innerHTML = "";
+  stickerModal.classList.remove("is-placeholder-preview");
   stickerModal.classList.add("is-premium");
+  stickerModal.classList.add("is-open");
+  stickerModal.setAttribute("aria-hidden", "false");
+}
+
+function openPremiumStickerPlaceholder(sticker) {
+  const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
+  const teamName = sticker.team_name || sticker.teamName || "";
+  const rarityLabel = sticker.rarity_label || "";
+  const role = sticker.role || sticker.title || "Figurinha oficial";
+
+  stickerModalImage.removeAttribute("src");
+  stickerModalImage.hidden = true;
+  stickerModalPlaceholder.hidden = false;
+  stickerModalPlaceholder.innerHTML = `
+    <span class="modal-placeholder-kicker">${escapeHtml(rarityLabel)}</span>
+    <strong>${escapeHtml(stickerLabel)}</strong>
+    <span class="modal-placeholder-team">${escapeHtml(teamName)}</span>
+    <em>${escapeHtml(role)}</em>
+  `;
+  stickerModal.classList.add("is-premium", "is-placeholder-preview");
   stickerModal.classList.add("is-open");
   stickerModal.setAttribute("aria-hidden", "false");
 }
@@ -946,7 +980,11 @@ bookElement.addEventListener("click", (event) => {
 function closeStickerModal() {
   stickerModal.classList.remove("is-open");
   stickerModal.setAttribute("aria-hidden", "true");
+  stickerModal.classList.remove("is-placeholder-preview");
   stickerModalImage.removeAttribute("src");
+  stickerModalImage.hidden = false;
+  stickerModalPlaceholder.hidden = true;
+  stickerModalPlaceholder.innerHTML = "";
 }
 
 stickerModalClose.addEventListener("click", closeStickerModal);
@@ -1201,9 +1239,12 @@ function renderCollection() {
       const stickerLabel = sticker.album_number || String(sticker.number || 0).padStart(3, "0");
       const teamName = sticker.team_name || sticker.teamName || "";
       const rarityLabel = sticker.rarity_label || "";
+      const encodedSticker = encodeURIComponent(JSON.stringify(sticker));
       const media = sticker.src
         ? `<button class="collection-sticker-button" type="button" data-sticker-src="${sticker.src}" data-sticker-alt="${teamName} ${stickerLabel}"><img src="${sticker.src}" alt="${teamName} ${stickerLabel}" /></button>`
-        : `<span class="collection-placeholder">${stickerLabel}<small>${teamName}<br>${rarityLabel}</small></span>`;
+        : `<button class="collection-sticker-button" type="button" data-sticker-json="${encodedSticker}" aria-label="Ampliar ${teamName} ${stickerLabel}">
+            <span class="collection-placeholder">${stickerLabel}<small>${teamName}<br>${rarityLabel}</small></span>
+          </button>`;
       const badge = duplicateCount > 0 ? `<span class="duplicate-badge">+${duplicateCount}</span>` : "";
       return `<article class="collection-sticker">
         ${media}
@@ -1330,7 +1371,14 @@ collectionGrid.addEventListener("click", (event) => {
   const button = event.target.closest(".collection-sticker-button");
   if (!button) return;
 
-  openPremiumSticker(button.dataset.stickerSrc, button.dataset.stickerAlt);
+  if (button.dataset.stickerSrc) {
+    openPremiumSticker(button.dataset.stickerSrc, button.dataset.stickerAlt);
+    return;
+  }
+
+  if (button.dataset.stickerJson) {
+    openPremiumStickerPlaceholder(JSON.parse(decodeURIComponent(button.dataset.stickerJson)));
+  }
 });
 
 function closeCheckout() {
