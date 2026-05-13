@@ -1512,7 +1512,7 @@ button.sticker-cell {
 
 .checkout-methods {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
@@ -1532,37 +1532,6 @@ button.sticker-cell {
   color: #d6a12d;
 }
 
-.checkout-form {
-  display: grid;
-  gap: 10px;
-}
-
-.checkout-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.checkout-form label {
-  display: grid;
-  gap: 5px;
-  color: rgba(255, 238, 184, 0.82);
-  font-size: 0.76rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.checkout-form input {
-  width: 100%;
-  min-width: 0;
-  padding: 11px 12px;
-  border: 1px solid rgba(214, 161, 45, 0.42);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font: inherit;
-}
-
 .checkout-confirm {
   padding: 13px 16px;
   border: 1px solid rgba(214, 161, 45, 0.95);
@@ -1572,15 +1541,6 @@ button.sticker-cell {
   cursor: pointer;
   font-weight: 950;
   text-transform: uppercase;
-}
-
-.checkout-note {
-  margin: 0;
-  color: rgba(255, 253, 244, 0.68);
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.35;
-  text-align: center;
 }
 
 .icon-button {
