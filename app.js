@@ -437,7 +437,13 @@ function teamCatalogStickers(teamName) {
 function officialStickerFor(sticker) {
   if (!sticker) return null;
   const byId = stickerCatalog.stickers.find((catalogSticker) => catalogSticker.id === sticker.id);
-  if (byId) return { ...byId, ...sticker };
+  if (byId) {
+    return {
+      ...byId,
+      ...sticker,
+      src: sticker.src || byId.src,
+    };
+  }
 
   const teamName = sticker.team_name || sticker.teamName || "";
   const number = Number(sticker.number || String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
@@ -447,7 +453,7 @@ function officialStickerFor(sticker) {
       Number(catalogSticker.number || 0) === number,
   );
 
-  return byTeamAndNumber ? { ...byTeamAndNumber, src: sticker.src || byTeamAndNumber.src } : sticker;
+  return byTeamAndNumber ? { ...byTeamAndNumber, ...sticker, src: sticker.src || byTeamAndNumber.src } : sticker;
 }
 
 function waitForPageFlip() {
@@ -502,7 +508,7 @@ function stickerGrid(teamName, startNumber) {
       return `<span class="sticker-cell"><span class="sticker-number">${number}</span></span>`;
     }
 
-    const pastedSticker = pastedStickers[catalogSticker.id];
+    const pastedSticker = pastedStickers[catalogSticker.id] ? officialStickerFor(pastedStickers[catalogSticker.id]) : null;
     const stickerLabel = catalogSticker.album_number || String(number).padStart(3, "0");
 
     if (pastedSticker?.src) {
