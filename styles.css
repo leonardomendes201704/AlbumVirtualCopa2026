@@ -1820,6 +1820,85 @@ button.sticker-cell {
   color: #d6a12d;
   font-weight: 950;
   box-shadow: 0 0 10px rgba(214, 161, 45, 0.18);
+  overflow: hidden;
+}
+
+.opened-sticker-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.collection-card {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  max-height: 52vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.collection-sticker {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(214, 161, 45, 0.72);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.44);
+}
+
+.collection-sticker img,
+.collection-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 6.5 / 9;
+  border-radius: 5px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 38%, rgba(214, 161, 45, 0.16)),
+    rgba(255, 255, 255, 0.08);
+  color: #d6a12d;
+  font-weight: 950;
+  object-fit: cover;
+  overflow: hidden;
+}
+
+.collection-sticker footer {
+  overflow: hidden;
+  color: rgba(255, 253, 244, 0.86);
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duplicate-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.28rem;
+  border: 1px solid rgba(214, 161, 45, 0.95);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #d6a12d;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 0 8px rgba(214, 161, 45, 0.42);
 }
 
 @media (max-width: 620px) {

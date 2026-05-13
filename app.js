@@ -267,6 +267,13 @@ const mixedPackCountElement = document.querySelector("#mixedPackCount");
 const specialPackCountElement = document.querySelector("#specialPackCount");
 const openedPackResult = document.querySelector("#openedPackResult");
 const inventoryMessage = document.querySelector("#inventoryMessage");
+const openCollectionButton = document.querySelector("#openCollection");
+const collectionModal = document.querySelector("#collectionModal");
+const collectionBackdrop = document.querySelector(".collection-backdrop");
+const collectionCloseButton = document.querySelector(".collection-close");
+const collectionGrid = document.querySelector("#collectionGrid");
+const collectionUniqueTotal = document.querySelector("#collectionUniqueTotal");
+const collectionMessage = document.querySelector("#collectionMessage");
 
 let pageFlip;
 let resizeTimer;
@@ -276,6 +283,7 @@ let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
 let packInventory = JSON.parse(localStorage.getItem("albumPackInventory") || '{"Comum":0,"Sortido":0,"Especial":0}');
+let openedStickers = JSON.parse(localStorage.getItem("albumOpenedStickers") || "{}");
 let selectedPack = {
   type: "Comum",
   cost: 20,
@@ -947,6 +955,39 @@ function savePackInventory() {
   localStorage.setItem("albumPackInventory", JSON.stringify(packInventory));
 }
 
+function stickerPool() {
+  const pool = [];
+  imageFiles.forEach((fileName) => {
+    const teamName = fileName.replace(".png", "");
+    const teamPageCount = pagesForTeam(fileName);
+    const totalSlots = teamPageCount * 9;
+    for (let number = 1; number <= totalSlots; number += 1) {
+      const teamStickers = stickersByTeam.get(teamKey(fileName));
+      const stickerFile = teamStickers?.get(number);
+      pool.push({
+        id: `${teamKey(teamName)}-${String(number).padStart(3, "0")}`,
+        teamName,
+        number,
+        src: stickerFile ? `./Paginas/Figurinhas/${encodeURIComponent(stickerFile)}` : "",
+      });
+    }
+  });
+  return pool;
+}
+
+function saveOpenedStickers() {
+  localStorage.setItem("albumOpenedStickers", JSON.stringify(openedStickers));
+}
+
+function addOpenedSticker(sticker) {
+  const current = openedStickers[sticker.id] || {
+    ...sticker,
+    count: 0,
+  };
+  current.count += 1;
+  openedStickers[sticker.id] = current;
+}
+
 function updateInventory(message) {
   const total = Object.values(packInventory).reduce((sum, count) => sum + count, 0);
   inventoryTotalElement.textContent = String(total);
@@ -965,6 +1006,44 @@ function openInventoryModal() {
   updateInventory();
   inventoryModal.classList.add("is-open");
   inventoryModal.setAttribute("aria-hidden", "false");
+}
+
+function renderCollection() {
+  const stickers = Object.values(openedStickers).sort((a, b) => {
+    const teamCompare = a.teamName.localeCompare(b.teamName, "pt-BR");
+    return teamCompare || a.number - b.number;
+  });
+
+  collectionUniqueTotal.textContent = String(stickers.length);
+  collectionGrid.innerHTML = stickers
+    .map((sticker) => {
+      const duplicateCount = Math.max(0, sticker.count - 1);
+      const media = sticker.src
+        ? `<img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" />`
+        : `<span class="collection-placeholder">${String(sticker.number).padStart(3, "0")}</span>`;
+      const badge = duplicateCount > 0 ? `<span class="duplicate-badge">+${duplicateCount}</span>` : "";
+      return `<article class="collection-sticker">
+        ${media}
+        ${badge}
+        <footer>${sticker.teamName} ${String(sticker.number).padStart(3, "0")}</footer>
+      </article>`;
+    })
+    .join("");
+
+  collectionMessage.textContent = stickers.length
+    ? "Figurinhas abertas ficam salvas neste navegador."
+    : "Abra pacotinhos para ver suas figurinhas aqui.";
+}
+
+function openCollectionModal() {
+  renderCollection();
+  collectionModal.classList.add("is-open");
+  collectionModal.setAttribute("aria-hidden", "false");
+}
+
+function closeCollectionModal() {
+  collectionModal.classList.remove("is-open");
+  collectionModal.setAttribute("aria-hidden", "true");
 }
 
 function closeInventoryModal() {
@@ -1042,12 +1121,24 @@ document.querySelectorAll(".open-pack-button").forEach((button) => {
     savePackInventory();
 
     const stickerCount = packTypeConfig[type].stickers;
-    openedPackResult.innerHTML = Array.from({ length: stickerCount }, (_, index) => {
-      return `<span class="opened-sticker-card">${index + 1}</span>`;
+    const pool = stickerPool();
+    const opened = Array.from({ length: stickerCount }, () => pool[Math.floor(Math.random() * pool.length)]);
+    opened.forEach(addOpenedSticker);
+    saveOpenedStickers();
+    openedPackResult.innerHTML = opened.map((sticker) => {
+      if (sticker.src) {
+        return `<span class="opened-sticker-card is-real"><img src="${sticker.src}" alt="${sticker.teamName} ${sticker.number}" /></span>`;
+      }
+
+      return `<span class="opened-sticker-card">${String(sticker.number).padStart(3, "0")}</span>`;
     }).join("");
     updateInventory(`Pacotinho ${type} aberto: ${stickerCount} figurinha(s) revelada(s).`);
   });
 });
+
+openCollectionButton.addEventListener("click", openCollectionModal);
+collectionCloseButton.addEventListener("click", closeCollectionModal);
+collectionBackdrop.addEventListener("click", closeCollectionModal);
 
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
@@ -1094,6 +1185,11 @@ confirmCheckoutButton.addEventListener("click", () => {
 applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && collectionModal.classList.contains("is-open")) {
+    closeCollectionModal();
+    return;
+  }
+
   if (event.key === "Escape" && inventoryModal.classList.contains("is-open")) {
     closeInventoryModal();
     return;
