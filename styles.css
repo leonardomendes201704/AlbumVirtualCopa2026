@@ -965,7 +965,7 @@ button.sticker-cell {
 .sticker-modal {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 40;
   display: grid;
   place-items: center;
   opacity: 0;
@@ -982,7 +982,7 @@ button.sticker-cell {
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(0, 0, 0, 0.74);
+  background: rgba(0, 0, 0, 0.86);
   cursor: zoom-out;
 }
 
