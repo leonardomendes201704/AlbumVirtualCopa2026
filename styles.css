@@ -1017,21 +1017,22 @@ button.sticker-cell {
 .sticker-modal.is-premium .sticker-modal-card::before {
   content: "";
   position: absolute;
-  inset: -45%;
+  inset: -28%;
   z-index: 2;
   background:
-    conic-gradient(
-      from 120deg,
-      rgba(255, 255, 255, 0),
-      rgba(255, 220, 112, 0.3),
-      rgba(88, 214, 255, 0.26),
-      rgba(255, 113, 232, 0.22),
-      rgba(255, 255, 255, 0)
+    repeating-conic-gradient(
+      from 18deg,
+      rgba(255, 255, 255, 0) 0deg 10deg,
+      rgba(255, 210, 120, 0.12) 10deg 15deg,
+      rgba(120, 235, 255, 0.11) 15deg 20deg,
+      rgba(255, 138, 232, 0.1) 20deg 25deg,
+      rgba(155, 255, 190, 0.09) 25deg 30deg,
+      rgba(255, 255, 255, 0) 30deg 42deg
     );
   mix-blend-mode: screen;
-  opacity: 0.72;
+  opacity: 0.42;
   pointer-events: none;
-  animation: holographicSweep 2600ms linear infinite;
+  animation: holographicSweep 11000ms linear infinite;
 }
 
 .sticker-modal.is-premium .sticker-modal-card::after {
@@ -1043,14 +1044,15 @@ button.sticker-cell {
   background:
     linear-gradient(
       118deg,
-      transparent 34%,
-      rgba(255, 255, 255, 0.16) 42%,
-      rgba(255, 220, 112, 0.34) 48%,
-      rgba(88, 214, 255, 0.24) 54%,
+      transparent 36%,
+      rgba(255, 255, 255, 0.1) 43%,
+      rgba(255, 222, 140, 0.18) 47%,
+      rgba(116, 235, 255, 0.14) 51%,
+      rgba(255, 148, 232, 0.12) 55%,
       transparent 64%
     );
   pointer-events: none;
-  animation: premiumGlint 1800ms ease-in-out infinite alternate;
+  animation: premiumGlint 7600ms ease-in-out infinite alternate;
 }
 
 .sticker-modal-card img {
