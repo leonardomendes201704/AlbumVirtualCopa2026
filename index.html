@@ -6,6 +6,7 @@
     <title>Album Copa - Revista</title>
     <link rel="stylesheet" href="./styles.css" />
     <script defer src="./vendor/page-flip.browser.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -49,6 +50,10 @@
         <button class="rail-button" id="openCollection" type="button" aria-label="Figurinhas abertas" title="Figurinhas abertas">
           <span class="rail-icon" aria-hidden="true">▧</span>
           <span class="rail-label">Minhas</span>
+        </button>
+        <button class="rail-button" id="openMarket" type="button" aria-label="Mercado" title="Mercado">
+          <span class="rail-icon" aria-hidden="true">MKT</span>
+          <span class="rail-label">Mercado</span>
         </button>
         <button class="rail-button" type="button" aria-label="Estatisticas" title="Estatisticas">
           <span class="rail-icon" aria-hidden="true">▦</span>
@@ -251,10 +256,76 @@
         <div id="stickerModalPlaceholder" class="sticker-modal-placeholder" hidden></div>
         <div class="sticker-action-bar" aria-label="Acoes da figurinha">
           <button id="pasteStickerButton" class="sticker-action-button sticker-action-primary" type="button">Colar no album</button>
-          <button class="sticker-action-button" type="button" disabled title="Disponivel em breve">Vender</button>
+          <button id="sellStickerButton" class="sticker-action-button" type="button" disabled>Vender</button>
           <button class="sticker-action-button" type="button" disabled title="Disponivel em breve">Trocar</button>
         </div>
       </div>
     </div>
+
+    <section id="marketModal" class="packs-modal market-modal" aria-hidden="true">
+      <button class="market-backdrop packs-backdrop" type="button" aria-label="Fechar mercado"></button>
+      <div class="packs-card market-card" role="dialog" aria-modal="true" aria-label="Mercado de figurinhas">
+        <header class="packs-header">
+          <div>
+            <span>Mercado</span>
+            <h2>Comprar figurinhas</h2>
+          </div>
+          <button class="market-close packs-close" type="button" aria-label="Fechar mercado">×</button>
+        </header>
+
+        <div class="market-status" id="marketStatus">Conectando ao mercado...</div>
+
+        <div class="market-filters" aria-label="Filtros do mercado">
+          <label>
+            Buscar
+            <input id="marketSearch" type="search" placeholder="RSA-07, Brasil, goleiro..." />
+          </label>
+          <label>
+            Selecao
+            <select id="marketTeamFilter">
+              <option value="all">Todas</option>
+            </select>
+          </label>
+          <label>
+            Raridade
+            <select id="marketRarityFilter">
+              <option value="all">Todas</option>
+            </select>
+          </label>
+        </div>
+
+        <section class="market-compare" aria-label="Comparacao de precos">
+          <article><span>Anuncios</span><strong id="marketCompareCount">0</strong></article>
+          <article><span>Menor</span><strong id="marketCompareMin">-</strong></article>
+          <article><span>Media</span><strong id="marketCompareAvg">-</strong></article>
+          <article><span>Maior</span><strong id="marketCompareMax">-</strong></article>
+        </section>
+
+        <div id="marketListings" class="market-listings"></div>
+      </div>
+    </section>
+
+    <section id="sellModal" class="checkout-modal sell-modal" aria-hidden="true">
+      <button class="sell-backdrop checkout-backdrop" type="button" aria-label="Fechar venda"></button>
+      <div class="checkout-card sell-card" role="dialog" aria-modal="true" aria-label="Vender figurinha">
+        <header class="checkout-header">
+          <div>
+            <span>Mercado</span>
+            <h2>Vender figurinha</h2>
+          </div>
+          <button class="sell-close checkout-close" type="button" aria-label="Fechar venda">×</button>
+        </header>
+
+        <div id="sellStickerSummary" class="sell-sticker-summary"></div>
+
+        <label class="sell-price-field">
+          Valor em creditos
+          <input id="sellPriceInput" type="number" min="1" step="1" value="10" />
+        </label>
+
+        <button id="confirmSellListing" class="checkout-confirm" type="button">Criar anuncio</button>
+        <p id="sellMessage" class="packs-message" role="status">Defina um valor para anunciar sua duplicata.</p>
+      </div>
+    </section>
   </body>
 </html>

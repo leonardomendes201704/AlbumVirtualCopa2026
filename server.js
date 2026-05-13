@@ -38,6 +38,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === "/api/supabase-config") {
+    send(
+      res,
+      200,
+      JSON.stringify({
+        configured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+        url: process.env.SUPABASE_URL || "",
+        anonKey: process.env.SUPABASE_ANON_KEY || "",
+      }),
+      types[".json"],
+    );
+    return;
+  }
+
   const decodedPath = decodeURIComponent(url.pathname);
   const relativePath = decodedPath === "/" ? "index.html" : decodedPath.slice(1);
   let filePath = path.resolve(root, relativePath);

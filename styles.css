@@ -1925,6 +1925,233 @@ button.sticker-cell {
   line-height: 1.35;
 }
 
+.market-modal {
+  z-index: 26;
+}
+
+.market-card {
+  width: min(980px, calc(100vw - 30px));
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.market-status {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(214, 161, 45, 0.46);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.36);
+  color: rgba(255, 253, 244, 0.82);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.market-filters {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 10px;
+}
+
+.market-filters label,
+.sell-price-field {
+  display: grid;
+  gap: 5px;
+  color: rgba(255, 238, 184, 0.82);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.market-filters input,
+.market-filters select,
+.sell-price-field input {
+  min-width: 0;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid rgba(214, 161, 45, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+}
+
+.market-filters option {
+  color: #101010;
+}
+
+.market-compare {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.market-compare article {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(214, 161, 45, 0.56);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.market-compare span {
+  color: #d6a12d;
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.market-compare strong {
+  color: #fff;
+  font-size: 1.2rem;
+  text-shadow: 0 0 8px rgba(214, 161, 45, 0.7);
+}
+
+.market-listings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.market-listing-card {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(214, 161, 45, 0.52);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(214, 161, 45, 0.12), transparent 38%),
+    rgba(0, 0, 0, 0.42);
+}
+
+.market-card-media {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.market-card-media img,
+.market-card-placeholder {
+  width: 100%;
+  aspect-ratio: 6.5 / 9;
+  border: 1px solid rgba(214, 161, 45, 0.8);
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.market-card-placeholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.14), transparent 3rem),
+    linear-gradient(150deg, rgba(25, 25, 22, 0.98), rgba(143, 102, 24, 0.68));
+  color: #f8d46c;
+  font-size: 1.05rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.market-card-placeholder small {
+  color: rgba(255, 253, 244, 0.8);
+  font-size: 0.56rem;
+  line-height: 1.08;
+}
+
+.market-card-body {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.market-card-body strong {
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.96rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-card-body span {
+  color: rgba(255, 253, 244, 0.72);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.market-card-body em {
+  color: #d6a12d;
+  font-size: 1.22rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.market-buy-button {
+  align-self: end;
+  padding: 9px 10px;
+  border: 1px solid rgba(214, 161, 45, 0.82);
+  border-radius: 8px;
+  background: rgba(214, 161, 45, 0.18);
+  color: #fffdf4;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.market-buy-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.market-empty {
+  grid-column: 1 / -1;
+  padding: 20px;
+  border: 1px dashed rgba(214, 161, 45, 0.42);
+  border-radius: 10px;
+  color: rgba(255, 253, 244, 0.72);
+  font-weight: 850;
+  text-align: center;
+}
+
+.sell-modal {
+  z-index: 45;
+}
+
+.sell-card {
+  width: min(430px, calc(100vw - 28px));
+}
+
+.sell-sticker-summary {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid rgba(214, 161, 45, 0.56);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.sell-sticker-summary strong {
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.28rem;
+}
+
+.sell-sticker-summary span {
+  color: rgba(255, 238, 184, 0.82);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
 .inventory-list {
   display: grid;
   gap: 10px;

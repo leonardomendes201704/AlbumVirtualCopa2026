@@ -235,6 +235,7 @@ const stickerModalPlaceholder = document.querySelector("#stickerModalPlaceholder
 const stickerModalClose = document.querySelector(".sticker-modal-close");
 const stickerModalBackdrop = document.querySelector(".sticker-modal-backdrop");
 const pasteStickerButton = document.querySelector("#pasteStickerButton");
+const sellStickerButton = document.querySelector("#sellStickerButton");
 const openShopButton = document.querySelector("#openShop");
 const shopPanel = document.querySelector("#shopPanel");
 const shopCloseButton = document.querySelector(".shop-close");
@@ -275,6 +276,26 @@ const collectionCloseButton = document.querySelector(".collection-close");
 const collectionGrid = document.querySelector("#collectionGrid");
 const collectionUniqueTotal = document.querySelector("#collectionUniqueTotal");
 const collectionMessage = document.querySelector("#collectionMessage");
+const openMarketButton = document.querySelector("#openMarket");
+const marketModal = document.querySelector("#marketModal");
+const marketBackdrop = document.querySelector(".market-backdrop");
+const marketCloseButton = document.querySelector(".market-close");
+const marketStatus = document.querySelector("#marketStatus");
+const marketSearch = document.querySelector("#marketSearch");
+const marketTeamFilter = document.querySelector("#marketTeamFilter");
+const marketRarityFilter = document.querySelector("#marketRarityFilter");
+const marketCompareCount = document.querySelector("#marketCompareCount");
+const marketCompareMin = document.querySelector("#marketCompareMin");
+const marketCompareAvg = document.querySelector("#marketCompareAvg");
+const marketCompareMax = document.querySelector("#marketCompareMax");
+const marketListings = document.querySelector("#marketListings");
+const sellModal = document.querySelector("#sellModal");
+const sellBackdrop = document.querySelector(".sell-backdrop");
+const sellCloseButton = document.querySelector(".sell-close");
+const sellStickerSummary = document.querySelector("#sellStickerSummary");
+const sellPriceInput = document.querySelector("#sellPriceInput");
+const confirmSellListingButton = document.querySelector("#confirmSellListing");
+const sellMessage = document.querySelector("#sellMessage");
 
 let pageFlip;
 let resizeTimer;
@@ -292,6 +313,12 @@ let packInventory = loadPackInventory();
 let openedStickers = JSON.parse(localStorage.getItem("albumOpenedStickers") || "{}");
 let pastedStickers = JSON.parse(localStorage.getItem("albumPastedStickers") || "{}");
 let currentPreviewSticker = null;
+let supabaseClient = null;
+let supabaseUser = null;
+let supabaseProfile = null;
+let marketListingsState = [];
+let marketConfigured = false;
+let pendingSellSticker = null;
 let packPity = JSON.parse(
   localStorage.getItem("albumPackPity") || '{"withoutEpicOrBetter":0,"withoutLegendary":0}',
 );
@@ -902,6 +929,8 @@ function updateStickerActionBar() {
   if (!currentPreviewSticker?.id) {
     pasteStickerButton.disabled = true;
     pasteStickerButton.textContent = "Colar no album";
+    sellStickerButton.disabled = true;
+    sellStickerButton.title = "Abra uma figurinha para vender.";
     return;
   }
 
@@ -911,6 +940,25 @@ function updateStickerActionBar() {
   const availableCount = openedStickers[inventoryId]?.count || openedStickers[officialSticker.id]?.count || 0;
   pasteStickerButton.disabled = isPasted || availableCount <= 0;
   pasteStickerButton.textContent = isPasted ? "Colada" : "Colar no album";
+
+  sellStickerButton.disabled = true;
+  sellStickerButton.textContent = "Vender";
+  sellStickerButton.title = "Apenas duplicatas podem ser vendidas.";
+
+  if (!marketConfigured) {
+    sellStickerButton.title = "Configure o Supabase para ativar o mercado.";
+    return;
+  }
+
+  if (!supabaseUser) {
+    sellStickerButton.title = "Entrando no mercado...";
+    return;
+  }
+
+  if (availableCount > 1) {
+    sellStickerButton.disabled = false;
+    sellStickerButton.title = "Anunciar uma copia duplicada no mercado.";
+  }
 }
 
 function openStickerModal(stickerElement) {
@@ -1084,6 +1132,355 @@ function updateCredits(message) {
   packsCreditBalanceElement.textContent = String(creditBalance);
   localStorage.setItem("albumCredits", String(creditBalance));
   if (message) shopMessage.textContent = message;
+}
+
+function marketSetStatus(message) {
+  if (marketStatus) marketStatus.textContent = message;
+}
+
+function marketStickerPayload(sticker) {
+  const officialSticker = officialStickerFor(sticker);
+  return {
+    id: officialSticker.id,
+    sticker_id: officialSticker.id,
+    album_number: officialSticker.album_number || "",
+    team_code: officialSticker.team_code || "",
+    team_name: officialSticker.team_name || officialSticker.teamName || "",
+    group: officialSticker.group || "",
+    rarity: officialSticker.rarity || "",
+    rarity_label: officialSticker.rarity_label || "",
+    duplicate_value: Number(officialSticker.duplicate_value || 0),
+    foil: Boolean(officialSticker.foil),
+    title: officialSticker.title || "",
+    role: officialSticker.role || "",
+    src: officialSticker.src || "",
+  };
+}
+
+async function refreshSupabaseProfile() {
+  if (!supabaseClient || !supabaseUser) return null;
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id, display_name, credits")
+    .eq("id", supabaseUser.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  supabaseProfile = data;
+
+  if (data && Number.isFinite(Number(data.credits))) {
+    creditBalance = Number(data.credits);
+    updateCredits();
+  }
+
+  return data;
+}
+
+async function ensureSupabaseProfile() {
+  if (!supabaseClient || !supabaseUser) return null;
+
+  await supabaseClient.from("profiles").upsert(
+    {
+      id: supabaseUser.id,
+      display_name: "Colecionador",
+    },
+    { onConflict: "id", ignoreDuplicates: true },
+  );
+
+  return refreshSupabaseProfile();
+}
+
+async function syncLocalInventoryToSupabase() {
+  if (!supabaseClient || !supabaseUser) return;
+
+  const stickers = Object.values(openedStickers)
+    .filter((sticker) => sticker?.id && Number(sticker.count || 0) > 0)
+    .map((sticker) => ({
+      ...marketStickerPayload(sticker),
+      count: Number(sticker.count || 0),
+    }));
+
+  const { error } = await supabaseClient.rpc("sync_user_snapshot", {
+    p_credits: creditBalance,
+    p_stickers: stickers,
+  });
+
+  if (error) throw error;
+  await refreshSupabaseProfile();
+}
+
+async function initSupabase() {
+  if (supabaseClient || marketConfigured) return Boolean(supabaseClient);
+
+  try {
+    const response = await fetch("/api/supabase-config", { cache: "no-store" });
+    const config = response.ok ? await response.json() : { configured: false };
+    marketConfigured = Boolean(config.configured && config.url && config.anonKey && window.supabase);
+
+    if (!marketConfigured) {
+      marketSetStatus("Mercado offline: configure SUPABASE_URL e SUPABASE_ANON_KEY na Vercel.");
+      updateStickerActionBar();
+      return false;
+    }
+
+    supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+    const sessionResult = await supabaseClient.auth.getSession();
+    supabaseUser = sessionResult.data.session?.user || null;
+
+    if (!supabaseUser) {
+      const { data, error } = await supabaseClient.auth.signInAnonymously();
+      if (error) throw error;
+      supabaseUser = data.user;
+    }
+
+    await ensureSupabaseProfile();
+    await syncLocalInventoryToSupabase();
+    await loadMarketListings();
+    updateStickerActionBar();
+    return true;
+  } catch (error) {
+    marketSetStatus(`Mercado indisponivel: ${error.message}`);
+    supabaseClient = null;
+    supabaseUser = null;
+    marketConfigured = false;
+    updateStickerActionBar();
+    return false;
+  }
+}
+
+function populateMarketFilters() {
+  if (!marketTeamFilter || marketTeamFilter.dataset.ready === "true") return;
+
+  const teams = [...new Set(stickerCatalog.stickers.map((sticker) => sticker.team_name).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+  const rarities = [...new Set(stickerCatalog.stickers.map((sticker) => sticker.rarity_label).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, "pt-BR"),
+  );
+
+  marketTeamFilter.innerHTML =
+    '<option value="">Todas as selecoes</option>' +
+    teams.map((team) => `<option value="${escapeHtml(team)}">${escapeHtml(team)}</option>`).join("");
+  marketRarityFilter.innerHTML =
+    '<option value="">Todas as raridades</option>' +
+    rarities.map((rarity) => `<option value="${escapeHtml(rarity)}">${escapeHtml(rarity)}</option>`).join("");
+  marketTeamFilter.dataset.ready = "true";
+}
+
+function filteredMarketListings() {
+  const search = (marketSearch?.value || "").trim().toLowerCase();
+  const team = marketTeamFilter?.value || "";
+  const rarity = marketRarityFilter?.value || "";
+
+  return marketListingsState
+    .filter((listing) => listing.status === "active")
+    .filter((listing) => listing.seller_id !== supabaseUser?.id)
+    .filter((listing) => !team || listing.team_name === team)
+    .filter((listing) => !rarity || listing.rarity_label === rarity)
+    .filter((listing) => {
+      if (!search) return true;
+      return [listing.sticker_id, listing.album_number, listing.team_name, listing.rarity_label]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
+    })
+    .sort((a, b) => Number(a.price) - Number(b.price));
+}
+
+function updateMarketComparison(listings) {
+  const prices = listings.map((listing) => Number(listing.price)).filter((price) => Number.isFinite(price));
+  const min = prices.length ? Math.min(...prices) : 0;
+  const max = prices.length ? Math.max(...prices) : 0;
+  const avg = prices.length ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : 0;
+
+  marketCompareCount.textContent = String(prices.length);
+  marketCompareMin.textContent = `${min} CR`;
+  marketCompareAvg.textContent = `${avg} CR`;
+  marketCompareMax.textContent = `${max} CR`;
+}
+
+function renderMarketListingCard(listing) {
+  const stickerLabel = listing.album_number || listing.sticker_id;
+  const price = Number(listing.price || 0);
+  const canBuy = Boolean(supabaseUser && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price);
+  const media = listing.src
+    ? `<img src="${listing.src}" alt="${escapeHtml(listing.team_name)} ${escapeHtml(stickerLabel)}" />`
+    : `<span class="market-card-placeholder">${escapeHtml(stickerLabel)}<small>${escapeHtml(listing.team_name || "")}<br>${escapeHtml(listing.rarity_label || "")}</small></span>`;
+  const seller = String(listing.seller_id || "").slice(0, 8);
+  const disabledReason =
+    listing.seller_id === supabaseUser?.id
+      ? "Seu anuncio"
+      : (supabaseProfile?.credits || 0) < price
+        ? "Saldo insuficiente"
+        : "Comprar";
+
+  return `<article class="market-listing-card">
+    <div class="market-card-media">${media}</div>
+    <div class="market-card-body">
+      <strong>${escapeHtml(listing.team_name || "")} ${escapeHtml(stickerLabel)}</strong>
+      <span>${escapeHtml(listing.rarity_label || "")} · vendedor ${escapeHtml(seller)}</span>
+      <em>${price} CR</em>
+      <button class="market-buy-button" type="button" data-listing-id="${listing.id}" ${canBuy ? "" : "disabled"}>
+        ${disabledReason}
+      </button>
+    </div>
+  </article>`;
+}
+
+function renderMarketListings() {
+  if (!marketListings) return;
+
+  const listings = filteredMarketListings();
+  updateMarketComparison(listings);
+
+  marketListings.innerHTML = listings.length
+    ? listings.map(renderMarketListingCard).join("")
+    : `<div class="market-empty">Nenhum anuncio ativo encontrado para estes filtros.</div>`;
+
+  if (supabaseProfile) {
+    marketSetStatus(`Saldo no mercado: ${supabaseProfile.credits || 0} creditos.`);
+  }
+}
+
+async function loadMarketListings() {
+  if (!supabaseClient) return;
+
+  const { data, error } = await supabaseClient
+    .from("market_listings")
+    .select("*")
+    .eq("status", "active")
+    .order("price", { ascending: true });
+
+  if (error) throw error;
+  marketListingsState = data || [];
+  renderMarketListings();
+}
+
+function openMarketModal() {
+  populateMarketFilters();
+  marketModal.classList.add("is-open");
+  marketModal.setAttribute("aria-hidden", "false");
+  marketSetStatus("Conectando ao mercado...");
+  initSupabase().then((ready) => {
+    if (ready) loadMarketListings().catch((error) => marketSetStatus(error.message));
+    else renderMarketListings();
+  });
+}
+
+function closeMarketModal() {
+  marketModal.classList.remove("is-open");
+  marketModal.setAttribute("aria-hidden", "true");
+}
+
+function localOpenedInventoryCount(sticker) {
+  if (!sticker?.id) return 0;
+  const officialSticker = officialStickerFor(sticker);
+  const inventoryId = sticker.inventoryId || sticker.id;
+  return openedStickers[inventoryId]?.count || openedStickers[officialSticker.id]?.count || 0;
+}
+
+function openSellModal() {
+  if (!currentPreviewSticker?.id) return;
+
+  pendingSellSticker = {
+    ...marketStickerPayload(currentPreviewSticker),
+    inventoryId: currentPreviewSticker.inventoryId || currentPreviewSticker.id,
+  };
+
+  const count = localOpenedInventoryCount(currentPreviewSticker);
+  const suggestedPrice = Math.max(1, Number(pendingSellSticker.duplicate_value || 10) * 10);
+  sellStickerSummary.innerHTML = `<strong>${escapeHtml(pendingSellSticker.team_name)} ${escapeHtml(pendingSellSticker.album_number)}</strong>
+    <span>${escapeHtml(pendingSellSticker.rarity_label || "")} · disponiveis: ${count}</span>`;
+  sellPriceInput.value = String(suggestedPrice);
+  sellMessage.textContent = "Ao anunciar, uma copia duplicada fica reservada no mercado.";
+  sellModal.classList.add("is-open");
+  sellModal.setAttribute("aria-hidden", "false");
+}
+
+function closeSellModal() {
+  sellModal.classList.remove("is-open");
+  sellModal.setAttribute("aria-hidden", "true");
+  pendingSellSticker = null;
+}
+
+async function createMarketListing() {
+  if (!pendingSellSticker || !supabaseClient) return;
+
+  const price = Number(sellPriceInput.value || 0);
+  if (!Number.isInteger(price) || price <= 0) {
+    sellMessage.textContent = "Informe um preco inteiro maior que zero.";
+    return;
+  }
+
+  confirmSellListingButton.disabled = true;
+  sellMessage.textContent = "Criando anuncio...";
+
+  try {
+    await syncLocalInventoryToSupabase();
+    const { error } = await supabaseClient.rpc("create_market_listing", {
+      p_sticker_id: pendingSellSticker.id,
+      p_price: price,
+    });
+    if (error) throw error;
+
+    const current = openedStickers[pendingSellSticker.inventoryId] || openedStickers[pendingSellSticker.id];
+    if (current) {
+      current.count -= 1;
+      if (current.count <= 0) {
+        delete openedStickers[pendingSellSticker.inventoryId];
+        delete openedStickers[pendingSellSticker.id];
+      } else {
+        openedStickers[pendingSellSticker.inventoryId] = current;
+      }
+      saveOpenedStickers();
+      renderCollection();
+    }
+
+    sellMessage.textContent = "Anuncio criado com sucesso.";
+    await loadMarketListings();
+    updateStickerActionBar();
+    window.setTimeout(closeSellModal, 650);
+  } catch (error) {
+    sellMessage.textContent = error.message;
+  } finally {
+    confirmSellListingButton.disabled = false;
+  }
+}
+
+async function buyMarketListing(listingId) {
+  if (!supabaseClient) return;
+
+  const listing = marketListingsState.find((item) => item.id === listingId);
+  marketSetStatus("Processando compra...");
+
+  try {
+    const { error } = await supabaseClient.rpc("buy_market_listing", {
+      p_listing_id: listingId,
+    });
+    if (error) throw error;
+
+    if (listing) {
+      addOpenedSticker({
+        id: listing.sticker_id,
+        album_number: listing.album_number,
+        team_code: listing.team_code,
+        team_name: listing.team_name,
+        rarity: listing.rarity,
+        rarity_label: listing.rarity_label,
+        src: listing.src,
+      });
+      saveOpenedStickers();
+      renderCollection();
+    }
+
+    await refreshSupabaseProfile();
+    await loadMarketListings();
+    marketSetStatus("Compra realizada. Figurinha adicionada em Minhas.");
+  } catch (error) {
+    marketSetStatus(error.message);
+  }
 }
 
 function applyCheckoutReturn() {
@@ -1510,6 +1907,27 @@ collectionGrid.addEventListener("click", (event) => {
 });
 
 pasteStickerButton.addEventListener("click", pasteCurrentSticker);
+sellStickerButton.addEventListener("click", () => {
+  initSupabase().then((ready) => {
+    if (ready) openSellModal();
+  });
+});
+
+openMarketButton.addEventListener("click", openMarketModal);
+marketCloseButton.addEventListener("click", closeMarketModal);
+marketBackdrop.addEventListener("click", closeMarketModal);
+marketSearch.addEventListener("input", renderMarketListings);
+marketTeamFilter.addEventListener("change", renderMarketListings);
+marketRarityFilter.addEventListener("change", renderMarketListings);
+marketListings.addEventListener("click", (event) => {
+  const button = event.target.closest(".market-buy-button");
+  if (!button || button.disabled) return;
+  buyMarketListing(button.dataset.listingId);
+});
+
+sellCloseButton.addEventListener("click", closeSellModal);
+sellBackdrop.addEventListener("click", closeSellModal);
+confirmSellListingButton.addEventListener("click", createMarketListing);
 
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
@@ -1566,6 +1984,16 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (event.key === "Escape" && sellModal.classList.contains("is-open")) {
+    closeSellModal();
+    return;
+  }
+
+  if (event.key === "Escape" && marketModal.classList.contains("is-open")) {
+    closeMarketModal();
+    return;
+  }
+
   if (event.key === "Escape" && inventoryModal.classList.contains("is-open")) {
     closeInventoryModal();
     return;
@@ -1608,6 +2036,8 @@ window.addEventListener("resize", () => {
   resizeTimer = window.setTimeout(rebuildMagazine, 180);
 });
 
-createMagazine().catch((error) => {
-  renderError(`${error.message} Verifique se o arquivo vendor/page-flip.browser.min.js esta presente.`);
-});
+createMagazine()
+  .then(() => initSupabase())
+  .catch((error) => {
+    renderError(`${error.message} Verifique se o arquivo vendor/page-flip.browser.min.js esta presente.`);
+  });
