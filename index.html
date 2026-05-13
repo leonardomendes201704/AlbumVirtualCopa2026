@@ -42,6 +42,10 @@
           <span class="rail-icon" aria-hidden="true">▤</span>
           <span class="rail-label">Packs</span>
         </button>
+        <button class="rail-button" id="openInventory" type="button" aria-label="Abrir pacotinhos" title="Abrir pacotinhos">
+          <span class="rail-icon" aria-hidden="true">▥</span>
+          <span class="rail-label">Abrir</span>
+        </button>
         <button class="rail-button" type="button" aria-label="Estatisticas" title="Estatisticas">
           <span class="rail-icon" aria-hidden="true">▦</span>
           <span class="rail-label">Stats</span>
@@ -173,6 +177,51 @@
         </div>
 
         <button id="confirmCheckout" class="checkout-confirm" type="button">Pagar agora</button>
+      </div>
+    </section>
+
+    <section id="inventoryModal" class="packs-modal" aria-hidden="true">
+      <button class="inventory-backdrop packs-backdrop" type="button" aria-label="Fechar abertura de pacotinhos"></button>
+      <div class="packs-card" role="dialog" aria-modal="true" aria-label="Abrir pacotinhos">
+        <header class="packs-header">
+          <div>
+            <span>Inventario</span>
+            <h2>Abrir pacotinhos</h2>
+          </div>
+          <button class="inventory-close packs-close" type="button" aria-label="Fechar abertura de pacotinhos">×</button>
+        </header>
+
+        <div class="packs-wallet">
+          <span>Pacotinhos guardados</span>
+          <strong><span id="inventoryTotal">0</span></strong>
+        </div>
+
+        <div class="inventory-list">
+          <article class="inventory-pack">
+            <div>
+              <strong>Comum</strong>
+              <span><span id="commonPackCount">0</span> disponiveis</span>
+            </div>
+            <button class="open-pack-button" type="button" data-type="Comum">Abrir</button>
+          </article>
+          <article class="inventory-pack">
+            <div>
+              <strong>Sortido</strong>
+              <span><span id="mixedPackCount">0</span> disponiveis</span>
+            </div>
+            <button class="open-pack-button" type="button" data-type="Sortido">Abrir</button>
+          </article>
+          <article class="inventory-pack">
+            <div>
+              <strong>Especial</strong>
+              <span><span id="specialPackCount">0</span> disponiveis</span>
+            </div>
+            <button class="open-pack-button" type="button" data-type="Especial">Abrir</button>
+          </article>
+        </div>
+
+        <div id="openedPackResult" class="opened-pack-result" aria-live="polite"></div>
+        <p id="inventoryMessage" class="packs-message" role="status">Compre pacotinhos para abrir aqui.</p>
       </div>
     </section>
 

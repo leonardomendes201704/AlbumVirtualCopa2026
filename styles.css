@@ -1747,6 +1747,81 @@ button.sticker-cell {
   line-height: 1.35;
 }
 
+.inventory-list {
+  display: grid;
+  gap: 10px;
+}
+
+.inventory-pack {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(214, 161, 45, 0.54);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(214, 161, 45, 0.12), transparent 38%),
+    rgba(0, 0, 0, 0.4);
+}
+
+.inventory-pack div {
+  display: grid;
+  gap: 4px;
+}
+
+.inventory-pack strong {
+  color: #fff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.22rem;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(214, 161, 45, 0.66);
+}
+
+.inventory-pack span {
+  color: rgba(255, 238, 184, 0.82);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.open-pack-button {
+  min-width: 82px;
+  padding: 10px 12px;
+  border: 1px solid rgba(214, 161, 45, 0.86);
+  border-radius: 8px;
+  background: rgba(214, 161, 45, 0.16);
+  color: #fffdf4;
+  cursor: pointer;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.open-pack-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.opened-pack-result {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+}
+
+.opened-sticker-card {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 6.5 / 9;
+  border: 1px solid rgba(214, 161, 45, 0.9);
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 38%, rgba(214, 161, 45, 0.16)),
+    rgba(255, 255, 255, 0.08);
+  color: #d6a12d;
+  font-weight: 950;
+  box-shadow: 0 0 10px rgba(214, 161, 45, 0.18);
+}
+
 @media (max-width: 620px) {
   .pack-types {
     grid-template-columns: 1fr;

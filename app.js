@@ -257,6 +257,16 @@ const packsTotalElement = document.querySelector("#packsTotal");
 const packsStickerTotalElement = document.querySelector("#packsStickerTotal");
 const confirmPackPurchaseButton = document.querySelector("#confirmPackPurchase");
 const packsMessage = document.querySelector("#packsMessage");
+const openInventoryButton = document.querySelector("#openInventory");
+const inventoryModal = document.querySelector("#inventoryModal");
+const inventoryBackdrop = document.querySelector(".inventory-backdrop");
+const inventoryCloseButton = document.querySelector(".inventory-close");
+const inventoryTotalElement = document.querySelector("#inventoryTotal");
+const commonPackCountElement = document.querySelector("#commonPackCount");
+const mixedPackCountElement = document.querySelector("#mixedPackCount");
+const specialPackCountElement = document.querySelector("#specialPackCount");
+const openedPackResult = document.querySelector("#openedPackResult");
+const inventoryMessage = document.querySelector("#inventoryMessage");
 
 let pageFlip;
 let resizeTimer;
@@ -265,10 +275,17 @@ let stickersByTeam = new Map();
 let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
 let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
+let packInventory = JSON.parse(localStorage.getItem("albumPackInventory") || '{"Comum":0,"Sortido":0,"Especial":0}');
 let selectedPack = {
   type: "Comum",
   cost: 20,
   stickers: 3,
+};
+
+const packTypeConfig = {
+  Comum: { stickers: 3 },
+  Sortido: { stickers: 7 },
+  Especial: { stickers: 15 },
 };
 
 function teamKey(value) {
@@ -926,6 +943,35 @@ function updatePacksSummary(message) {
   if (message) packsMessage.textContent = message;
 }
 
+function savePackInventory() {
+  localStorage.setItem("albumPackInventory", JSON.stringify(packInventory));
+}
+
+function updateInventory(message) {
+  const total = Object.values(packInventory).reduce((sum, count) => sum + count, 0);
+  inventoryTotalElement.textContent = String(total);
+  commonPackCountElement.textContent = String(packInventory.Comum || 0);
+  mixedPackCountElement.textContent = String(packInventory.Sortido || 0);
+  specialPackCountElement.textContent = String(packInventory.Especial || 0);
+
+  document.querySelectorAll(".open-pack-button").forEach((button) => {
+    button.disabled = (packInventory[button.dataset.type] || 0) === 0;
+  });
+
+  if (message) inventoryMessage.textContent = message;
+}
+
+function openInventoryModal() {
+  updateInventory();
+  inventoryModal.classList.add("is-open");
+  inventoryModal.setAttribute("aria-hidden", "false");
+}
+
+function closeInventoryModal() {
+  inventoryModal.classList.remove("is-open");
+  inventoryModal.setAttribute("aria-hidden", "true");
+}
+
 function openPacksModal() {
   updatePacksSummary();
   packsModal.classList.add("is-open");
@@ -972,8 +1018,35 @@ confirmPackPurchaseButton.addEventListener("click", () => {
 
   const totalCost = quantity * selectedPack.cost;
   creditBalance -= totalCost;
+  packInventory[selectedPack.type] = (packInventory[selectedPack.type] || 0) + quantity;
+  savePackInventory();
   updateCredits();
-  updatePacksSummary(`${quantity} pacotinho(s) ${selectedPack.type} comprado(s).`);
+  updatePacksSummary(`${quantity} pacotinho(s) ${selectedPack.type} comprado(s) e salvo(s) no inventario.`);
+  updateInventory();
+});
+
+openInventoryButton.addEventListener("click", openInventoryModal);
+inventoryCloseButton.addEventListener("click", closeInventoryModal);
+inventoryBackdrop.addEventListener("click", closeInventoryModal);
+
+document.querySelectorAll(".open-pack-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const type = button.dataset.type;
+    const available = packInventory[type] || 0;
+    if (available <= 0) {
+      updateInventory(`Voce nao possui pacotinhos ${type}.`);
+      return;
+    }
+
+    packInventory[type] = available - 1;
+    savePackInventory();
+
+    const stickerCount = packTypeConfig[type].stickers;
+    openedPackResult.innerHTML = Array.from({ length: stickerCount }, (_, index) => {
+      return `<span class="opened-sticker-card">${index + 1}</span>`;
+    }).join("");
+    updateInventory(`Pacotinho ${type} aberto: ${stickerCount} figurinha(s) revelada(s).`);
+  });
 });
 
 function closeCheckout() {
@@ -1021,6 +1094,11 @@ confirmCheckoutButton.addEventListener("click", () => {
 applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && inventoryModal.classList.contains("is-open")) {
+    closeInventoryModal();
+    return;
+  }
+
   if (event.key === "Escape" && packsModal.classList.contains("is-open")) {
     closePacksModal();
     return;
