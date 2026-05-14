@@ -1699,7 +1699,7 @@ async function handleProfileSubmit(event) {
     const password = profilePasswordInput.value;
     const displayName = profileNameInput.value.trim() || "Colecionador";
 
-    const result =
+    let result =
       authMode === "signup"
         ? await supabaseClient.auth.signUp({
             email,
@@ -1717,9 +1717,19 @@ async function handleProfileSubmit(event) {
 
     if (result.error) throw result.error;
 
-    supabaseUser = result.data.session?.user || result.data.user || null;
-    if (!supabaseUser) {
-      profileMessage.textContent = "Conta criada. Verifique seu e-mail para confirmar o acesso.";
+    if (authMode === "signup" && !result.data.session) {
+      result = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+    }
+
+    if (result.error) throw result.error;
+
+    supabaseUser = result.data.session?.user || null;
+    if (!isRegisteredUser()) {
+      profileMessage.textContent =
+        "Conta criada, mas o Supabase pediu confirmacao por e-mail. Confirme o e-mail ou desative Confirm email no Supabase para liberar acesso imediato.";
       return;
     }
 
