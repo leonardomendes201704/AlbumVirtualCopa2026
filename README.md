@@ -72,7 +72,7 @@ Use qualquer validade futura e qualquer CVV.
 O mercado usa Supabase para autenticar o usuario, reservar duplicatas anunciadas e comprar/vender com creditos internos.
 
 1. Crie um projeto no Supabase.
-2. Em Authentication, habilite Email provider para login/senha e Anonymous Sign-Ins para visitantes.
+2. Em Authentication, habilite Email provider para login/senha. O app exige conta para acessar o album.
 3. Copie Project URL e anon public key para `SUPABASE_URL` e `SUPABASE_ANON_KEY` na Vercel.
 4. Copie a connection string do banco para `SUPABASE_DB_URL` na Vercel.
 5. Configure `MARKET_SETUP_TOKEN` com um valor secreto grande.

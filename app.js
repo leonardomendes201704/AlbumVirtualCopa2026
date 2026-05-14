@@ -1189,6 +1189,7 @@ function rebuildMagazine() {
 }
 
 previousButton.addEventListener("click", () => {
+  if (!requireRegisteredUser()) return;
   if (!pageFlip) return;
 
   if (!isCoverClosed && pageFlip.getCurrentPageIndex() <= 1) {
@@ -1200,6 +1201,7 @@ previousButton.addEventListener("click", () => {
 });
 
 nextButton.addEventListener("click", () => {
+  if (!requireRegisteredUser()) return;
   if (isCoverClosed) {
     showMagazine();
     return;
@@ -1208,9 +1210,13 @@ nextButton.addEventListener("click", () => {
   pageFlip?.flipNext();
 });
 
-coverView.addEventListener("click", showMagazine);
+coverView.addEventListener("click", () => {
+  if (!requireRegisteredUser()) return;
+  showMagazine();
+});
 
 bookElement.addEventListener("click", (event) => {
+  if (!requireRegisteredUser()) return;
   const sticker = event.target.closest(".sticker-cell.is-filled");
   if (!sticker) return;
 
@@ -1251,14 +1257,15 @@ function isRegisteredUser() {
 
 function profileLabel() {
   if (isRegisteredUser()) return supabaseUser.email;
-  if (supabaseUser?.is_anonymous) return "Visitante anonimo";
-  return "Desconectado";
+  return "Login obrigatorio";
 }
 
 function updateProfileUi(message) {
   profileUserStatus.textContent = profileLabel();
-  profileLogoutButton.hidden = !supabaseUser;
-  profileLogoutButton.disabled = !supabaseUser;
+  profileLogoutButton.hidden = !isRegisteredUser();
+  profileLogoutButton.disabled = !isRegisteredUser();
+  profileModal.classList.toggle("is-auth-required", !isRegisteredUser());
+  profileCloseButton.hidden = !isRegisteredUser();
   if (message) profileMessage.textContent = message;
   updateStickerActionBar();
   renderMarketListings();
@@ -1281,8 +1288,15 @@ async function ensureSupabaseClient() {
 
   if (!authListenerBound) {
     authListenerBound = true;
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
       supabaseUser = session?.user || null;
+      if (supabaseUser?.is_anonymous) {
+        await supabaseClient.auth.signOut();
+        supabaseUser = null;
+      }
+      if (!isRegisteredUser()) {
+        openProfileModal("Para acessar o album, entre ou crie uma conta.");
+      }
       updateProfileUi();
     });
   }
@@ -1403,16 +1417,22 @@ async function initSupabase() {
   try {
     if (!(await ensureSupabaseClient())) {
       updateStickerActionBar();
+      openProfileModal("Configure o Supabase para acessar o album.");
       return false;
     }
 
     const sessionResult = await supabaseClient.auth.getSession();
     supabaseUser = sessionResult.data.session?.user || null;
 
-    if (!supabaseUser) {
-      const { data, error } = await supabaseClient.auth.signInAnonymously();
-      if (error) throw error;
-      supabaseUser = data.user;
+    if (!isRegisteredUser()) {
+      if (supabaseUser?.is_anonymous) {
+        await supabaseClient.auth.signOut();
+      }
+      supabaseUser = null;
+      supabaseProfile = null;
+      openProfileModal("Para acessar o album, entre ou crie uma conta.");
+      updateStickerActionBar();
+      return false;
     }
 
     const localCreditSnapshot = Number(localStorage.getItem("albumCredits") || creditBalance || 0);
@@ -1422,6 +1442,7 @@ async function initSupabase() {
     await syncLocalInventoryToSupabase();
     await loadMarketListings();
     updateProfileUi();
+    closeProfileModal();
     updateStickerActionBar();
     return true;
   } catch (error) {
@@ -1602,6 +1623,7 @@ async function loadMarketListings() {
 }
 
 function openMarketModal() {
+  if (!requireRegisteredUser("Entre para acessar o mercado.")) return;
   populateMarketFilters();
   marketModal.classList.add("is-open");
   marketModal.setAttribute("aria-hidden", "false");
@@ -1647,8 +1669,21 @@ function openProfileModal(message) {
 }
 
 function closeProfileModal() {
+  if (!isRegisteredUser()) {
+    profileModal.classList.add("is-open");
+    profileModal.setAttribute("aria-hidden", "false");
+    updateProfileUi("Login obrigatorio para acessar o album.");
+    return;
+  }
+
   profileModal.classList.remove("is-open");
   profileModal.setAttribute("aria-hidden", "true");
+}
+
+function requireRegisteredUser(message = "Entre para acessar o album.") {
+  if (isRegisteredUser()) return true;
+  openProfileModal(message);
+  return false;
 }
 
 async function handleProfileSubmit(event) {
@@ -1695,6 +1730,7 @@ async function handleProfileSubmit(event) {
     await syncLocalInventoryToSupabase();
     await loadMarketListings();
     updateProfileUi(authMode === "signup" ? "Conta criada e conectada." : "Login realizado.");
+    closeProfileModal();
   } catch (error) {
     profileMessage.textContent = error.message;
   } finally {
@@ -1713,7 +1749,8 @@ async function logoutProfile() {
     supabaseUser = null;
     supabaseProfile = null;
     marketListingsState = [];
-    updateProfileUi("Voce saiu da conta.");
+    updateProfileUi("Voce saiu da conta. Login obrigatorio para acessar o album.");
+    openProfileModal();
   } catch (error) {
     profileMessage.textContent = error.message;
   } finally {
@@ -1878,6 +1915,7 @@ function applyCheckoutReturn() {
 }
 
 function openShop() {
+  if (!requireRegisteredUser()) return;
   updateCredits();
   shopPanel.classList.add("is-open");
   shopPanel.setAttribute("aria-hidden", "false");
@@ -1894,6 +1932,7 @@ shopBackdrop.addEventListener("click", closeShop);
 
 document.querySelectorAll(".credit-card").forEach((button) => {
   button.addEventListener("click", () => {
+    if (!requireRegisteredUser()) return;
     const credits = Number(button.dataset.credits);
     const price = button.querySelector("em")?.textContent ?? "R$ 0,00";
     pendingCheckout = {
@@ -2135,6 +2174,7 @@ function updateInventory(message) {
 }
 
 function openInventoryModal() {
+  if (!requireRegisteredUser()) return;
   updateInventory();
   inventoryModal.classList.add("is-open");
   inventoryModal.setAttribute("aria-hidden", "false");
@@ -2178,6 +2218,7 @@ function renderCollection() {
 }
 
 function openCollectionModal() {
+  if (!requireRegisteredUser()) return;
   renderCollection();
   collectionModal.classList.add("is-open");
   collectionModal.setAttribute("aria-hidden", "false");
@@ -2194,6 +2235,7 @@ function closeInventoryModal() {
 }
 
 function openPacksModal() {
+  if (!requireRegisteredUser()) return;
   updatePacksSummary();
   packsModal.classList.add("is-open");
   packsModal.setAttribute("aria-hidden", "false");
@@ -2235,6 +2277,7 @@ increasePackQtyButton.addEventListener("click", () => {
 packQuantityInput.addEventListener("input", () => updatePacksSummary());
 
 confirmPackPurchaseButton.addEventListener("click", () => {
+  if (!requireRegisteredUser()) return;
   const quantity = clampPackQuantity(packQuantityInput.value);
   if (quantity === 0) return;
   if (!stickerCatalog.stickers.length) {
@@ -2258,6 +2301,7 @@ inventoryBackdrop.addEventListener("click", closeInventoryModal);
 
 document.querySelectorAll(".open-pack-button").forEach((button) => {
   button.addEventListener("click", () => {
+    if (!requireRegisteredUser()) return;
     const type = button.dataset.type;
     const packIndex = packInventory.findIndex((pack) => pack.type === type && !pack.opened);
     if (packIndex < 0) {
@@ -2347,6 +2391,7 @@ document.querySelectorAll(".checkout-method").forEach((button) => {
 });
 
 confirmCheckoutButton.addEventListener("click", () => {
+  if (!requireRegisteredUser()) return;
   if (!pendingCheckout) return;
 
   confirmCheckoutButton.disabled = true;
@@ -2397,7 +2442,7 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (event.key === "Escape" && profileModal.classList.contains("is-open")) {
-    closeProfileModal();
+    if (isRegisteredUser()) closeProfileModal();
     return;
   }
 
@@ -2422,6 +2467,7 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (event.key === "ArrowLeft") {
+    if (!requireRegisteredUser()) return;
     if (!isCoverClosed && pageFlip?.getCurrentPageIndex() <= 1) {
       showCover();
     } else {
@@ -2430,6 +2476,7 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (event.key === "ArrowRight" || event.key === " ") {
+    if (!requireRegisteredUser()) return;
     if (isCoverClosed) {
       showMagazine();
     } else {
