@@ -1486,6 +1486,7 @@ async function initSupabase() {
     creditBalance = Math.max(creditBalance, localCreditSnapshot);
     updateCredits();
     await syncLocalInventoryToSupabase();
+    await applyCheckoutReturn();
     await loadMarketListings();
     updateProfileUi();
     closeProfileModal();
@@ -2327,34 +2328,45 @@ async function buyMarketListing(listingId) {
   }
 }
 
-function applyCheckoutReturn() {
+async function applyCheckoutReturn() {
   const status = checkoutParams.get("checkout");
   const credits = Number(checkoutParams.get("credits") || 0);
+  const sessionId = checkoutParams.get("session_id") || "";
 
   if (status === "success" && credits > 0) {
     if (!isRegisteredUser()) {
       updateCredits("Entre para aplicar os creditos da compra na sua conta.");
       openProfileModal("Entre para aplicar os creditos da compra na sua conta.");
-      return;
+      return false;
     }
 
-    const lastApplied = sessionStorage.getItem("lastCheckoutCredits");
-    const currentMarker = `${status}:${credits}`;
+    const markerKey = userStorageKey("albumAppliedCheckoutSessions");
+    const appliedSessions = readJsonStorage("albumAppliedCheckoutSessions", []);
+    const legacySessionKey = "lastCheckoutCredits";
+    const currentMarker = sessionId || `${status}:${credits}`;
 
-    if (lastApplied !== currentMarker) {
+    if (!appliedSessions.includes(currentMarker) && sessionStorage.getItem(legacySessionKey) !== currentMarker) {
       creditBalance += credits;
-      sessionStorage.setItem("lastCheckoutCredits", currentMarker);
+      localStorage.setItem(markerKey, JSON.stringify([...appliedSessions, currentMarker].slice(-30)));
+      sessionStorage.setItem(legacySessionKey, currentMarker);
       updateCredits(`Pagamento aprovado pela Stripe. ${credits} creditos adicionados.`);
+      if (supabaseClient) {
+        await syncLocalInventoryToSupabase();
+        await refreshSupabaseProfile();
+      }
     }
 
     window.history.replaceState({}, "", window.location.pathname);
-    return;
+    return true;
   }
 
   if (status === "cancel") {
     updateCredits("Pagamento cancelado. Nenhum credito foi adicionado.");
     window.history.replaceState({}, "", window.location.pathname);
+    return true;
   }
+
+  return false;
 }
 
 function openShop() {
@@ -2905,8 +2917,6 @@ confirmCheckoutButton.addEventListener("click", () => {
       confirmCheckoutButton.textContent = "Pagar agora";
     });
 });
-
-applyCheckoutReturn();
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && stickerModal.classList.contains("is-open")) {

@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
     metadata: {
       credits: String(credits),
     },
-    success_url: `${appUrl}/?checkout=success&credits=${credits}`,
+    success_url: `${appUrl}/?checkout=success&credits=${credits}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/?checkout=cancel`,
   });
 
