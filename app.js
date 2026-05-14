@@ -322,12 +322,12 @@ let stickerCatalog = {
   stickers: [],
   byRarity: new Map(),
 };
-let creditBalance = Number(localStorage.getItem("albumCredits") || 0);
+let creditBalance = 0;
 let pendingCheckout = null;
 const checkoutParams = new URLSearchParams(window.location.search);
 let packInventory = loadPackInventory();
-let openedStickers = JSON.parse(localStorage.getItem("albumOpenedStickers") || "{}");
-let pastedStickers = JSON.parse(localStorage.getItem("albumPastedStickers") || "{}");
+let openedStickers = {};
+let pastedStickers = {};
 let currentPreviewSticker = null;
 let supabaseClient = null;
 let supabaseUser = null;
@@ -337,9 +337,7 @@ let marketConfigured = false;
 let pendingSellSticker = null;
 let authMode = "signin";
 let authListenerBound = false;
-let packPity = JSON.parse(
-  localStorage.getItem("albumPackPity") || '{"withoutEpicOrBetter":0,"withoutLegendary":0}',
-);
+let packPity = { withoutEpicOrBetter: 0, withoutLegendary: 0 };
 let selectedPack = {
   type: "standard_pack",
   name: "Pacotinho Padrão",
@@ -352,9 +350,44 @@ const packTypeConfig = {
   premium_pack: { name: "Pacotinho Premium", stickers: 7 },
 };
 
+function userStoragePrefix() {
+  return isRegisteredUser() ? `album:${supabaseUser.id}` : "album:anonymous";
+}
+
+function userStorageKey(key) {
+  return `${userStoragePrefix()}:${key}`;
+}
+
+function readJsonStorage(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(userStorageKey(key)) || JSON.stringify(fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function loadUserLocalState() {
+  if (!isRegisteredUser()) {
+    creditBalance = 0;
+    packInventory = [];
+    openedStickers = {};
+    pastedStickers = {};
+    packPity = { withoutEpicOrBetter: 0, withoutLegendary: 0 };
+    updateCredits();
+    return;
+  }
+
+  creditBalance = Number(localStorage.getItem(userStorageKey("albumCredits")) || 0);
+  packInventory = loadPackInventory();
+  openedStickers = readJsonStorage("albumOpenedStickers", {});
+  pastedStickers = readJsonStorage("albumPastedStickers", {});
+  packPity = readJsonStorage("albumPackPity", { withoutEpicOrBetter: 0, withoutLegendary: 0 });
+  updateCredits();
+}
+
 function loadPackInventory() {
   try {
-    const stored = JSON.parse(localStorage.getItem("albumPackInventory") || "[]");
+    const stored = JSON.parse(localStorage.getItem(userStorageKey("albumPackInventory")) || "[]");
     return Array.isArray(stored) ? stored : [];
   } catch {
     return [];
@@ -362,7 +395,7 @@ function loadPackInventory() {
 }
 
 function savePackPity() {
-  localStorage.setItem("albumPackPity", JSON.stringify(packPity));
+  localStorage.setItem(userStorageKey("albumPackPity"), JSON.stringify(packPity));
 }
 
 function teamKey(value) {
@@ -997,7 +1030,7 @@ function showMagazine() {
 }
 
 function savePastedStickers() {
-  localStorage.setItem("albumPastedStickers", JSON.stringify(pastedStickers));
+  localStorage.setItem(userStorageKey("albumPastedStickers"), JSON.stringify(pastedStickers));
 }
 
 function updateStickerActionBar() {
@@ -1243,7 +1276,7 @@ stickerModalBackdrop.addEventListener("click", closeStickerModal);
 function updateCredits(message) {
   creditBalanceElement.textContent = String(creditBalance);
   packsCreditBalanceElement.textContent = String(creditBalance);
-  localStorage.setItem("albumCredits", String(creditBalance));
+  localStorage.setItem(userStorageKey("albumCredits"), String(creditBalance));
   if (message) shopMessage.textContent = message;
 }
 
@@ -1268,6 +1301,8 @@ function updateProfileUi(message) {
   profileCloseButton.hidden = !isRegisteredUser();
   if (message) profileMessage.textContent = message;
   updateStickerActionBar();
+  updateInventory();
+  renderCollection();
   renderMarketListings();
 }
 
@@ -1296,6 +1331,7 @@ async function ensureSupabaseClient() {
       }
       if (!isRegisteredUser()) {
         openProfileModal("Para acessar o album, entre ou crie uma conta.");
+        loadUserLocalState();
       }
       updateProfileUi();
     });
@@ -1435,7 +1471,8 @@ async function initSupabase() {
       return false;
     }
 
-    const localCreditSnapshot = Number(localStorage.getItem("albumCredits") || creditBalance || 0);
+    loadUserLocalState();
+    const localCreditSnapshot = Number(localStorage.getItem(userStorageKey("albumCredits")) || creditBalance || 0);
     await ensureSupabaseProfile();
     creditBalance = Math.max(creditBalance, localCreditSnapshot);
     updateCredits();
@@ -1733,7 +1770,8 @@ async function handleProfileSubmit(event) {
       return;
     }
 
-    const localCreditSnapshot = Number(localStorage.getItem("albumCredits") || creditBalance || 0);
+    loadUserLocalState();
+    const localCreditSnapshot = Number(localStorage.getItem(userStorageKey("albumCredits")) || creditBalance || 0);
     await ensureSupabaseProfile(displayName);
     creditBalance = Math.max(creditBalance, localCreditSnapshot);
     updateCredits();
@@ -1758,6 +1796,7 @@ async function logoutProfile() {
     await supabaseClient.auth.signOut();
     supabaseUser = null;
     supabaseProfile = null;
+    loadUserLocalState();
     marketListingsState = [];
     updateProfileUi("Voce saiu da conta. Login obrigatorio para acessar o album.");
     openProfileModal();
@@ -1890,6 +1929,7 @@ async function buyMarketListing(listingId) {
       });
       saveOpenedStickers();
       renderCollection();
+      await syncLocalInventoryToSupabase();
     }
 
     await refreshSupabaseProfile();
@@ -1905,6 +1945,12 @@ function applyCheckoutReturn() {
   const credits = Number(checkoutParams.get("credits") || 0);
 
   if (status === "success" && credits > 0) {
+    if (!isRegisteredUser()) {
+      updateCredits("Entre para aplicar os creditos da compra na sua conta.");
+      openProfileModal("Entre para aplicar os creditos da compra na sua conta.");
+      return;
+    }
+
     const lastApplied = sessionStorage.getItem("lastCheckoutCredits");
     const currentMarker = `${status}:${credits}`;
 
@@ -1979,7 +2025,7 @@ function updatePacksSummary(message) {
 }
 
 function savePackInventory() {
-  localStorage.setItem("albumPackInventory", JSON.stringify(packInventory));
+  localStorage.setItem(userStorageKey("albumPackInventory"), JSON.stringify(packInventory));
 }
 
 function weightedChoice(weights) {
@@ -2121,7 +2167,7 @@ function renderStickerFace(sticker) {
 }
 
 function saveOpenedStickers() {
-  localStorage.setItem("albumOpenedStickers", JSON.stringify(openedStickers));
+  localStorage.setItem(userStorageKey("albumOpenedStickers"), JSON.stringify(openedStickers));
 }
 
 function pasteCurrentSticker() {
