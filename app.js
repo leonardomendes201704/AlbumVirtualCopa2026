@@ -1320,6 +1320,15 @@ function rebuildMagazine() {
   });
 }
 
+function refreshMagazinePages() {
+  if (!pageFlip) return;
+
+  const pages = buildPages();
+  pageFlip.updateFromHtml(pages);
+  hydrateStadiumImages();
+  updateStatus();
+}
+
 function requestMagazineRebuild() {
   if (isCoverClosed) {
     pendingMagazineRebuild = true;
@@ -2778,7 +2787,11 @@ function pasteCurrentSticker() {
   renderCollection();
   updateStickerActionBar();
   collectionMessage.textContent = "Figurinha colada no album.";
-  rebuildMagazine();
+  if (isCoverClosed) {
+    requestMagazineRebuild();
+  } else {
+    refreshMagazinePages();
+  }
 }
 
 function addOpenedSticker(sticker) {
