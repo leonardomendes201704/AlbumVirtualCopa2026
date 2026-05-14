@@ -310,7 +310,7 @@
         <header class="packs-header">
           <div>
             <span>Mercado</span>
-            <h2>Comprar figurinhas</h2>
+            <h2>Venda e trocas</h2>
           </div>
           <button class="market-close packs-close" type="button" aria-label="Fechar mercado">×</button>
         </header>
@@ -336,14 +336,35 @@
           </label>
         </div>
 
-        <section class="market-compare" aria-label="Comparacao de precos">
-          <article><span>Anuncios</span><strong id="marketCompareCount">0</strong></article>
-          <article><span>Menor</span><strong id="marketCompareMin">-</strong></article>
-          <article><span>Media</span><strong id="marketCompareAvg">-</strong></article>
-          <article><span>Maior</span><strong id="marketCompareMax">-</strong></article>
-        </section>
+        <div class="market-workspace">
+          <aside class="market-sidebar" aria-label="Minhas duplicatas">
+            <div class="market-sidebar-title">
+              <span>Minhas duplicatas</span>
+              <strong id="marketDuplicateTotal">0</strong>
+            </div>
+            <div id="marketTree" class="market-tree"></div>
+          </aside>
 
-        <div id="marketListings" class="market-listings"></div>
+          <section class="market-detail" aria-label="Detalhes da figurinha">
+            <div id="marketSelectedPanel" class="market-selected-panel"></div>
+
+            <section class="market-compare" aria-label="Comparacao de precos">
+              <article><span>Anuncios</span><strong id="marketCompareCount">0</strong></article>
+              <article><span>Menor</span><strong id="marketCompareMin">-</strong></article>
+              <article><span>Media</span><strong id="marketCompareAvg">-</strong></article>
+              <article><span>Maior</span><strong id="marketCompareMax">-</strong></article>
+            </section>
+
+            <div class="market-tabs" role="tablist" aria-label="Acoes do mercado">
+              <button class="market-tab is-selected" type="button" data-market-tab="sale">Venda</button>
+              <button class="market-tab" type="button" data-market-tab="trade">Trocas</button>
+              <button class="market-tab" type="button" data-market-tab="compare">Comparar</button>
+            </div>
+
+            <div id="marketActionPanel" class="market-action-panel"></div>
+            <div id="marketListings" class="market-listings"></div>
+          </section>
+        </div>
       </div>
     </section>
 

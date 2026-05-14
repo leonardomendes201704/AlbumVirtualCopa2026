@@ -48,7 +48,11 @@ async function runSetup() {
            'sync_user_snapshot',
            'create_market_listing',
            'cancel_market_listing',
-           'buy_market_listing'
+           'buy_market_listing',
+           'create_trade_listing',
+           'create_trade_offer',
+           'accept_trade_offer',
+           'reject_trade_offer'
          )
        order by p.proname
     `);

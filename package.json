@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "generate:figurinhas": "node generate-figurinhas-manifest.js"
+    "generate:figurinhas": "node generate-figurinhas-manifest.js",
+    "db:market": "node scripts/run-market-migration.js"
   },
   "dependencies": {
     "pg": "^8.13.1",

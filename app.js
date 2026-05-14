@@ -289,6 +289,11 @@ const marketCompareMin = document.querySelector("#marketCompareMin");
 const marketCompareAvg = document.querySelector("#marketCompareAvg");
 const marketCompareMax = document.querySelector("#marketCompareMax");
 const marketListings = document.querySelector("#marketListings");
+const marketDuplicateTotal = document.querySelector("#marketDuplicateTotal");
+const marketTree = document.querySelector("#marketTree");
+const marketSelectedPanel = document.querySelector("#marketSelectedPanel");
+const marketActionPanel = document.querySelector("#marketActionPanel");
+const marketTabs = document.querySelectorAll(".market-tab");
 const sellModal = document.querySelector("#sellModal");
 const sellBackdrop = document.querySelector(".sell-backdrop");
 const sellCloseButton = document.querySelector(".sell-close");
@@ -333,6 +338,10 @@ let supabaseClient = null;
 let supabaseUser = null;
 let supabaseProfile = null;
 let marketListingsState = [];
+let marketUserStickersState = [];
+let marketTradeOffersState = [];
+let selectedMarketStickerId = "";
+let selectedMarketTab = "sale";
 let marketConfigured = false;
 let pendingSellSticker = null;
 let authMode = "signin";
@@ -1551,48 +1560,79 @@ function populateMarketFilters() {
   marketTeamFilter.dataset.ready = "true";
 }
 
-function filteredMarketListings() {
+function marketSearchText(sticker) {
+  return [
+    sticker?.sticker_id,
+    sticker?.id,
+    sticker?.album_number,
+    sticker?.team_name,
+    sticker?.rarity_label,
+    sticker?.title,
+    sticker?.role,
+    sticker?.player_name,
+    sticker?.position_label,
+    sticker?.metadata?.player?.full_name,
+    sticker?.metadata?.player?.known_as,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function filteredMarketDuplicates() {
   const search = (marketSearch?.value || "").trim().toLowerCase();
   const team = marketTeamFilter?.value || "";
   const rarity = marketRarityFilter?.value || "";
 
+  return marketUserStickersState
+    .filter((sticker) => Number(sticker.available_count || 0) > 1)
+    .filter((sticker) => !team || sticker.team_name === team)
+    .filter((sticker) => !rarity || sticker.rarity_label === rarity)
+    .filter((sticker) => !search || marketSearchText(sticker).includes(search))
+    .sort((a, b) => {
+      const teamCompare = (a.team_name || "").localeCompare(b.team_name || "", "pt-BR");
+      return teamCompare || (a.album_number || "").localeCompare(b.album_number || "", "pt-BR", { numeric: true });
+    });
+}
+
+function selectedMarketSticker() {
+  return marketUserStickersState.find((sticker) => sticker.sticker_id === selectedMarketStickerId) || null;
+}
+
+function selectedStickerListings() {
+  if (!selectedMarketStickerId) return [];
   return marketListingsState
     .filter((listing) => listing.status === "active")
-    .filter((listing) => listing.seller_id !== supabaseUser?.id)
-    .filter((listing) => !team || listing.team_name === team)
-    .filter((listing) => !rarity || listing.rarity_label === rarity)
-    .filter((listing) => {
-      if (!search) return true;
-      return [
-        listing.sticker_id,
-        listing.album_number,
-        listing.team_name,
-        listing.rarity_label,
-        listing.title,
-        listing.role,
-        listing.player_name,
-        listing.position_label,
-        listing.metadata?.player?.full_name,
-        listing.metadata?.player?.known_as,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(search);
-    })
-    .sort((a, b) => Number(a.price) - Number(b.price));
+    .filter((listing) => listing.sticker_id === selectedMarketStickerId)
+    .sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
 }
 
 function updateMarketComparison(listings) {
-  const prices = listings.map((listing) => Number(listing.price)).filter((price) => Number.isFinite(price));
+  const prices = listings.map((listing) => Number(listing.price)).filter((price) => Number.isFinite(price) && price > 0);
   const min = prices.length ? Math.min(...prices) : 0;
   const max = prices.length ? Math.max(...prices) : 0;
   const avg = prices.length ? Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length) : 0;
 
-  marketCompareCount.textContent = String(prices.length);
+  marketCompareCount.textContent = String(listings.length);
   marketCompareMin.textContent = `${min} CR`;
   marketCompareAvg.textContent = `${avg} CR`;
   marketCompareMax.textContent = `${max} CR`;
+}
+
+function marketStickerMedia(sticker, className = "market-card-placeholder") {
+  const stickerLabel = sticker.album_number || sticker.sticker_id || sticker.id || "";
+  const playerName = sticker.player_name || sticker.metadata?.player?.known_as || sticker.metadata?.player?.full_name || sticker.title || "";
+  return sticker.src
+    ? `<img src="${sticker.src}" alt="${escapeHtml(sticker.team_name || "")} ${escapeHtml(stickerLabel)}" />`
+    : `<span class="${className}">${escapeHtml(stickerLabel)}<small>${escapeHtml(playerName || sticker.team_name || "")}<br>${escapeHtml(sticker.rarity_label || "")}</small></span>`;
+}
+
+function saleButtonLabel(listing, price) {
+  if (listing.seller_id === supabaseUser?.id) return "Seu anuncio";
+  if (!isRegisteredUser()) return "Login necessario";
+  if (!price) return "Sem venda";
+  if ((supabaseProfile?.credits || 0) < price) return "Saldo insuficiente";
+  return "Comprar";
 }
 
 function renderMarketListingCard(listing) {
@@ -1601,48 +1641,255 @@ function renderMarketListingCard(listing) {
   const position = listing.position_label || listing.metadata?.player?.position_label || listing.role || "";
   const price = Number(listing.price || 0);
   const canBuy = Boolean(
-    isRegisteredUser() && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price,
+    price > 0 && isRegisteredUser() && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price,
   );
-  const media = listing.src
-    ? `<img src="${listing.src}" alt="${escapeHtml(listing.team_name)} ${escapeHtml(stickerLabel)}" />`
-    : `<span class="market-card-placeholder">${escapeHtml(stickerLabel)}<small>${escapeHtml(playerName || listing.team_name || "")}<br>${escapeHtml(listing.rarity_label || "")}</small></span>`;
   const seller = String(listing.seller_id || "").slice(0, 8);
-  const disabledReason =
-    listing.seller_id === supabaseUser?.id
-      ? "Seu anuncio"
-      : !isRegisteredUser()
-        ? "Login necessario"
-      : (supabaseProfile?.credits || 0) < price
-        ? "Saldo insuficiente"
-        : "Comprar";
+  const acceptsTrade = Boolean(listing.accepts_trade || listing.listing_type === "trade" || listing.listing_type === "sale_or_trade");
+  const offerInventory = filteredMarketDuplicates();
+  const canOffer = acceptsTrade && listing.seller_id !== supabaseUser?.id && offerInventory.length > 0;
+  const offerOptions = offerInventory
+    .map((sticker) => `<option value="${escapeHtml(sticker.sticker_id)}">${escapeHtml(sticker.team_name || "")} ${escapeHtml(sticker.album_number || sticker.sticker_id)}</option>`)
+    .join("");
 
   return `<article class="market-listing-card">
-    <div class="market-card-media">${media}</div>
+    <div class="market-card-media">${marketStickerMedia(listing)}</div>
     <div class="market-card-body">
       <strong>${escapeHtml(listing.team_name || "")} ${escapeHtml(stickerLabel)}</strong>
       <span>${escapeHtml(playerName || position || listing.rarity_label || "")}</span>
       <span>${escapeHtml(listing.rarity_label || "")} · vendedor ${escapeHtml(seller)}</span>
-      <em>${price} CR</em>
+      <span>${acceptsTrade ? "Aceita troca" : "Venda direta"}</span>
+      <em>${price > 0 ? `${price} CR` : "Troca"}</em>
       <button class="market-buy-button" type="button" data-listing-id="${listing.id}" ${canBuy ? "" : "disabled"}>
-        ${disabledReason}
+        ${saleButtonLabel(listing, price)}
       </button>
+      ${
+        acceptsTrade && listing.seller_id !== supabaseUser?.id
+          ? `<div class="market-action-row">
+              <label>Oferecer
+                <select data-offer-select="${listing.id}" ${canOffer ? "" : "disabled"}>${offerOptions}</select>
+              </label>
+              <button class="market-action-button" type="button" data-trade-listing-id="${listing.id}" ${canOffer ? "" : "disabled"}>Propor</button>
+            </div>`
+          : ""
+      }
     </div>
   </article>`;
+}
+
+function renderMarketTree() {
+  if (!marketTree) return;
+
+  const duplicates = filteredMarketDuplicates();
+  marketDuplicateTotal.textContent = String(duplicates.length);
+
+  if (!selectedMarketStickerId || !duplicates.some((sticker) => sticker.sticker_id === selectedMarketStickerId)) {
+    selectedMarketStickerId = duplicates[0]?.sticker_id || "";
+  }
+
+  if (!duplicates.length) {
+    marketTree.innerHTML = `<div class="market-empty">Nenhuma duplicata disponivel. Abra pacotinhos para criar estoque de venda e troca.</div>`;
+    return;
+  }
+
+  const grouped = duplicates.reduce((groups, sticker) => {
+    const team = sticker.team_name || "Sem selecao";
+    if (!groups.has(team)) groups.set(team, []);
+    groups.get(team).push(sticker);
+    return groups;
+  }, new Map());
+
+  marketTree.innerHTML = [...grouped.entries()]
+    .map(([team, stickers]) => `<details class="market-tree-group" open>
+      <summary>${escapeHtml(team)} <span>${stickers.length}</span></summary>
+      <div class="market-tree-items">
+        ${stickers
+          .map((sticker) => {
+            const label = `${sticker.album_number || sticker.sticker_id} ${sticker.player_name || sticker.title || ""}`.trim();
+            return `<button class="market-tree-item ${sticker.sticker_id === selectedMarketStickerId ? "is-selected" : ""}" type="button" data-sticker-id="${escapeHtml(sticker.sticker_id)}">
+              <strong>${escapeHtml(label)}</strong>
+              <span>x${Number(sticker.available_count || 0)}</span>
+            </button>`;
+          })
+          .join("")}
+      </div>
+    </details>`)
+    .join("");
+}
+
+function renderSelectedMarketPanel() {
+  const sticker = selectedMarketSticker();
+  if (!marketSelectedPanel) return;
+
+  if (!sticker) {
+    marketSelectedPanel.innerHTML = `<div class="market-empty">Selecione uma duplicata na arvore para vender ou trocar.</div>`;
+    return;
+  }
+
+  const displayName = sticker.player_name || sticker.metadata?.player?.known_as || sticker.metadata?.player?.full_name || sticker.title || "";
+  const position = sticker.position_label || sticker.metadata?.player?.position_label || sticker.role || "";
+  const activeOwnListings = marketListingsState.filter(
+    (listing) => listing.seller_id === supabaseUser?.id && listing.sticker_id === sticker.sticker_id && listing.status === "active",
+  );
+
+  marketSelectedPanel.innerHTML = `<article class="market-selected-card">
+    <div class="market-card-media">${marketStickerMedia(sticker)}</div>
+    <div>
+      <h3>${escapeHtml(sticker.team_name || "")} ${escapeHtml(sticker.album_number || sticker.sticker_id)}</h3>
+      <p>${escapeHtml(displayName || position || sticker.rarity_label || "Figurinha da colecao")}</p>
+      <div class="market-selected-meta">
+        <span>${escapeHtml(sticker.rarity_label || "Raridade")}</span>
+        ${position ? `<span>${escapeHtml(position)}</span>` : ""}
+        <span>${activeOwnListings.length} anuncio(s) ativo(s)</span>
+      </div>
+    </div>
+    <div class="market-selected-count">${Number(sticker.available_count || 0)}<small>disp.</small></div>
+  </article>`;
+}
+
+function renderMarketSaleActions(sticker) {
+  const suggestedPrice = Math.max(1, Number(sticker?.duplicate_value || 10) * 10);
+  return `<div class="market-action-grid">
+    <div class="market-action-box">
+      <h4>Vender</h4>
+      <p>Uma copia duplicada fica reservada no mercado ate vender ou cancelar.</p>
+    </div>
+    <div class="market-action-box">
+      <div class="market-action-row">
+        <label>Preco em creditos
+          <input id="marketSalePrice" type="number" min="1" step="1" value="${suggestedPrice}" />
+        </label>
+        <button class="market-action-button" type="button" data-create-sale>Criar venda</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function marketOfferCard(offer, mode) {
+  const listing = offer.market_listings || {};
+  const offeredLabel = `${offer.offered_team_name || ""} ${offer.offered_album_number || offer.offered_sticker_id || ""}`.trim();
+  const requestedLabel = `${listing.team_name || ""} ${listing.album_number || listing.sticker_id || ""}`.trim();
+  const status = offer.status || "pending";
+  const isReceived = mode === "received";
+  return `<article class="market-offer-card">
+    <div>
+      <h4>${isReceived ? "Proposta recebida" : "Proposta enviada"} · ${escapeHtml(status)}</h4>
+      <div class="market-offer-flow">
+        <b>${isReceived ? "Voce entrega" : "Voce recebe"}:</b> ${escapeHtml(requestedLabel)}<br>
+        <b>${isReceived ? "Voce recebe" : "Voce entrega"}:</b> ${escapeHtml(offeredLabel)}
+      </div>
+    </div>
+    ${
+      isReceived && status === "pending"
+        ? `<div class="market-offer-actions">
+            <button class="market-action-button" type="button" data-accept-offer="${offer.id}">Aceitar</button>
+            <button class="market-action-button" type="button" data-reject-offer="${offer.id}">Recusar</button>
+          </div>`
+        : `<span class="market-mode-pill">${escapeHtml(status)}</span>`
+    }
+  </article>`;
+}
+
+function renderMarketTradeActions(sticker) {
+  const received = marketTradeOffersState.filter(
+    (offer) => offer.to_user_id === supabaseUser?.id && offer.market_listings?.sticker_id === sticker.sticker_id,
+  );
+  const sent = marketTradeOffersState.filter((offer) => offer.from_user_id === supabaseUser?.id);
+  const hasTradeListing = marketListingsState.some(
+    (listing) =>
+      listing.seller_id === supabaseUser?.id &&
+      listing.sticker_id === sticker.sticker_id &&
+      listing.status === "active" &&
+      (listing.accepts_trade || listing.listing_type === "trade" || listing.listing_type === "sale_or_trade"),
+  );
+
+  return `<div class="market-action-grid">
+    <div class="market-action-box">
+      <h4>Trocar</h4>
+      <p>Crie um anuncio que aceita propostas. A copia fica reservada enquanto o anuncio estiver ativo.</p>
+      <button class="market-action-button" type="button" data-create-trade ${hasTradeListing ? "disabled" : ""}>
+        ${hasTradeListing ? "Troca ativa" : "Aceitar propostas"}
+      </button>
+    </div>
+    <div class="market-offers">
+      <div class="market-action-box">
+        <h4>Recebidas</h4>
+        ${received.length ? received.map((offer) => marketOfferCard(offer, "received")).join("") : "<p>Nenhuma proposta recebida para esta figurinha.</p>"}
+      </div>
+      <div class="market-action-box">
+        <h4>Enviadas</h4>
+        ${sent.length ? sent.map((offer) => marketOfferCard(offer, "sent")).join("") : "<p>Nenhuma proposta enviada.</p>"}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMarketCompareActions(listings) {
+  return listings.length
+    ? `<div class="market-action-box"><h4>Comparacao</h4><p>Veja anuncios ativos desta mesma figurinha. Use Comprar para venda direta ou Propor para troca.</p></div>`
+    : `<div class="market-empty">Nenhum outro usuario anunciou esta figurinha ainda.</div>`;
 }
 
 function renderMarketListings() {
   if (!marketListings) return;
 
-  const listings = filteredMarketListings();
+  renderMarketTree();
+  renderSelectedMarketPanel();
+  const sticker = selectedMarketSticker();
+  const listings = selectedStickerListings();
   updateMarketComparison(listings);
 
-  marketListings.innerHTML = listings.length
-    ? listings.map(renderMarketListingCard).join("")
-    : `<div class="market-empty">Nenhum anuncio ativo encontrado para estes filtros.</div>`;
+  marketTabs.forEach((tab) => {
+    tab.classList.toggle("is-selected", tab.dataset.marketTab === selectedMarketTab);
+  });
+
+  if (!sticker) {
+    marketActionPanel.innerHTML = "";
+    marketListings.innerHTML = "";
+  } else if (selectedMarketTab === "sale") {
+    marketActionPanel.innerHTML = renderMarketSaleActions(sticker);
+    const externalListings = listings.filter((listing) => listing.seller_id !== supabaseUser?.id);
+    marketListings.innerHTML = externalListings.length
+      ? externalListings.map(renderMarketListingCard).join("")
+      : `<div class="market-empty">Nenhum anuncio de outros usuarios para comparar.</div>`;
+  } else if (selectedMarketTab === "trade") {
+    marketActionPanel.innerHTML = renderMarketTradeActions(sticker);
+    marketListings.innerHTML = "";
+  } else {
+    marketActionPanel.innerHTML = renderMarketCompareActions(listings);
+    marketListings.innerHTML = listings.length
+      ? listings.map(renderMarketListingCard).join("")
+      : `<div class="market-empty">Nenhum anuncio ativo encontrado para esta figurinha.</div>`;
+  }
 
   if (supabaseProfile) {
     marketSetStatus(`Saldo no mercado: ${supabaseProfile.credits || 0} creditos.`);
   }
+}
+
+async function loadMarketUserStickers() {
+  if (!supabaseClient || !supabaseUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("user_stickers")
+    .select("*")
+    .eq("user_id", supabaseUser.id)
+    .order("team_name", { ascending: true });
+
+  if (error) throw error;
+  marketUserStickersState = data || [];
+}
+
+async function loadMarketTradeOffers() {
+  if (!supabaseClient || !supabaseUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("market_trade_offers")
+    .select("*, market_listings(*)")
+    .or(`from_user_id.eq.${supabaseUser.id},to_user_id.eq.${supabaseUser.id}`)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  marketTradeOffersState = data || [];
 }
 
 async function loadMarketListings() {
@@ -1652,10 +1899,14 @@ async function loadMarketListings() {
     .from("market_listings")
     .select("*")
     .eq("status", "active")
-    .order("price", { ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
   marketListingsState = data || [];
+  if (supabaseUser) {
+    await loadMarketUserStickers();
+    await loadMarketTradeOffers();
+  }
   renderMarketListings();
 }
 
@@ -1674,6 +1925,133 @@ function openMarketModal() {
 function closeMarketModal() {
   marketModal.classList.remove("is-open");
   marketModal.setAttribute("aria-hidden", "true");
+}
+
+function decrementLocalOpenedSticker(stickerId) {
+  const current = openedStickers[stickerId];
+  if (!current) return;
+
+  current.count -= 1;
+  if (current.count <= 0) {
+    delete openedStickers[stickerId];
+  } else {
+    openedStickers[stickerId] = current;
+  }
+  saveOpenedStickers();
+  renderCollection();
+}
+
+function mergeMarketStickerIntoLocal(sticker) {
+  if (!sticker?.sticker_id) return;
+  const local = openedStickers[sticker.sticker_id] || {
+    id: sticker.sticker_id,
+    album_number: sticker.album_number,
+    team_code: sticker.team_code,
+    team_name: sticker.team_name,
+    rarity: sticker.rarity,
+    rarity_label: sticker.rarity_label,
+    title: sticker.title,
+    role: sticker.role,
+    card_type: sticker.card_type || sticker.metadata?.card_type,
+    category_code: sticker.category_code || sticker.metadata?.category_code,
+    player: sticker.metadata?.player,
+    player_name: sticker.player_name || sticker.metadata?.player?.known_as || sticker.metadata?.player?.full_name,
+    position_label: sticker.position_label || sticker.metadata?.player?.position_label,
+    src: sticker.src,
+    count: 0,
+  };
+  local.count = Math.max(Number(local.count || 0), Number(sticker.available_count || 0));
+  openedStickers[sticker.sticker_id] = local;
+}
+
+async function refreshMarketState(message) {
+  await refreshSupabaseProfile();
+  await loadMarketListings();
+  marketUserStickersState.forEach(mergeMarketStickerIntoLocal);
+  saveOpenedStickers();
+  renderCollection();
+  updateStickerActionBar();
+  if (message) marketSetStatus(message);
+}
+
+async function createSelectedSaleListing() {
+  const sticker = selectedMarketSticker();
+  if (!sticker || !supabaseClient) return;
+
+  const input = document.querySelector("#marketSalePrice");
+  const price = Number(input?.value || 0);
+  if (!Number.isInteger(price) || price <= 0) {
+    marketSetStatus("Informe um preco inteiro maior que zero.");
+    return;
+  }
+
+  marketSetStatus("Criando anuncio de venda...");
+  try {
+    await syncLocalInventoryToSupabase();
+    const { error } = await supabaseClient.rpc("create_market_listing", {
+      p_sticker_id: sticker.sticker_id,
+      p_price: price,
+    });
+    if (error) throw error;
+    decrementLocalOpenedSticker(sticker.sticker_id);
+    await refreshMarketState("Anuncio de venda criado.");
+  } catch (error) {
+    marketSetStatus(error.message);
+  }
+}
+
+async function createSelectedTradeListing() {
+  const sticker = selectedMarketSticker();
+  if (!sticker || !supabaseClient) return;
+
+  marketSetStatus("Criando anuncio de troca...");
+  try {
+    await syncLocalInventoryToSupabase();
+    const { error } = await supabaseClient.rpc("create_trade_listing", {
+      p_sticker_id: sticker.sticker_id,
+    });
+    if (error) throw error;
+    decrementLocalOpenedSticker(sticker.sticker_id);
+    await refreshMarketState("Anuncio de troca criado.");
+  } catch (error) {
+    marketSetStatus(error.message);
+  }
+}
+
+async function createTradeOffer(listingId) {
+  const select = document.querySelector(`[data-offer-select="${CSS.escape(listingId)}"]`);
+  const offeredStickerId = select?.value;
+  if (!listingId || !offeredStickerId || !supabaseClient) return;
+
+  marketSetStatus("Enviando proposta de troca...");
+  try {
+    await syncLocalInventoryToSupabase();
+    const { error } = await supabaseClient.rpc("create_trade_offer", {
+      p_listing_id: listingId,
+      p_offered_sticker_id: offeredStickerId,
+    });
+    if (error) throw error;
+    decrementLocalOpenedSticker(offeredStickerId);
+    await refreshMarketState("Proposta enviada.");
+  } catch (error) {
+    marketSetStatus(error.message);
+  }
+}
+
+async function respondTradeOffer(offerId, action) {
+  if (!offerId || !supabaseClient) return;
+  marketSetStatus(action === "accept" ? "Aceitando troca..." : "Recusando troca...");
+
+  try {
+    const rpc = action === "accept" ? "accept_trade_offer" : "reject_trade_offer";
+    const { error } = await supabaseClient.rpc(rpc, {
+      p_offer_id: offerId,
+    });
+    if (error) throw error;
+    await refreshMarketState(action === "accept" ? "Troca aceita." : "Proposta recusada.");
+  } catch (error) {
+    marketSetStatus(error.message);
+  }
 }
 
 function setAuthMode(mode) {
@@ -1798,6 +2176,9 @@ async function logoutProfile() {
     supabaseProfile = null;
     loadUserLocalState();
     marketListingsState = [];
+    marketUserStickersState = [];
+    marketTradeOffersState = [];
+    selectedMarketStickerId = "";
     updateProfileUi("Voce saiu da conta. Login obrigatorio para acessar o album.");
     openProfileModal();
   } catch (error) {
@@ -2413,10 +2794,53 @@ marketBackdrop.addEventListener("click", closeMarketModal);
 marketSearch.addEventListener("input", renderMarketListings);
 marketTeamFilter.addEventListener("change", renderMarketListings);
 marketRarityFilter.addEventListener("change", renderMarketListings);
+marketTree.addEventListener("click", (event) => {
+  const button = event.target.closest(".market-tree-item");
+  if (!button) return;
+  selectedMarketStickerId = button.dataset.stickerId || "";
+  renderMarketListings();
+});
+marketTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    selectedMarketTab = tab.dataset.marketTab || "sale";
+    renderMarketListings();
+  });
+});
+marketActionPanel.addEventListener("click", (event) => {
+  const saleButton = event.target.closest("[data-create-sale]");
+  if (saleButton) {
+    createSelectedSaleListing();
+    return;
+  }
+
+  const tradeButton = event.target.closest("[data-create-trade]");
+  if (tradeButton && !tradeButton.disabled) {
+    createSelectedTradeListing();
+    return;
+  }
+
+  const acceptButton = event.target.closest("[data-accept-offer]");
+  if (acceptButton) {
+    respondTradeOffer(acceptButton.dataset.acceptOffer, "accept");
+    return;
+  }
+
+  const rejectButton = event.target.closest("[data-reject-offer]");
+  if (rejectButton) {
+    respondTradeOffer(rejectButton.dataset.rejectOffer, "reject");
+  }
+});
 marketListings.addEventListener("click", (event) => {
   const button = event.target.closest(".market-buy-button");
-  if (!button || button.disabled) return;
-  buyMarketListing(button.dataset.listingId);
+  if (button && !button.disabled) {
+    buyMarketListing(button.dataset.listingId);
+    return;
+  }
+
+  const tradeButton = event.target.closest("[data-trade-listing-id]");
+  if (tradeButton && !tradeButton.disabled) {
+    createTradeOffer(tradeButton.dataset.tradeListingId);
+  }
 });
 
 sellCloseButton.addEventListener("click", closeSellModal);
