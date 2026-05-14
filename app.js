@@ -955,8 +955,8 @@ function buildPages() {
     ),
   ];
 
-  pages.push(ownerPage(1));
-  pages.push(statsPage(2));
+  pages.push(spreadImagePage("./Paginas/Pagina1e2.png", 1, "left", "Pagina 1 e 2"));
+  pages.push(spreadImagePage("./Paginas/Pagina1e2.png", 2, "right", "Pagina 1 e 2"));
   pages.push(spreadImagePage("./Paginas/Grupos.png", 3, "left", "Grupos da Copa 2026"));
   pages.push(spreadImagePage("./Paginas/Grupos.png", 4, "right", "Grupos da Copa 2026"));
   pages.push(tournamentPage(tournamentRoadmap.slice(0, 2), 5, "Tabela da Copa I", "groups"));
