@@ -484,6 +484,16 @@ async function loadStickerCatalog() {
   }
 }
 
+async function loadMagazineData() {
+  if (!stickersByTeam.size) {
+    stickersByTeam = await loadStickers();
+  }
+
+  if (!stickerCatalog.stickers.length) {
+    stickerCatalog = await loadStickerCatalog();
+  }
+}
+
 function normalizeCatalogSticker(sticker) {
   const number = Number(String(sticker.album_number || "").match(/(\d+)$/)?.[1] || 0);
   const stickerFile =
@@ -1254,8 +1264,7 @@ function renderError(message) {
 
 async function createMagazine(startPage = 0) {
   const PageFlip = await waitForPageFlip();
-  stickersByTeam = await loadStickers();
-  stickerCatalog = await loadStickerCatalog();
+  await loadMagazineData();
   const { width, height } = pageSize();
   const pages = buildPages();
   applyPageSize(width, height);
@@ -1655,7 +1664,6 @@ async function initSupabase() {
     updateProfileUi();
     closeProfileModal();
     updateStickerActionBar();
-    requestMagazineRebuild();
     return true;
   } catch (error) {
     if (await tryAutoSetupMarket(error)) {
@@ -3155,8 +3163,12 @@ window.addEventListener("resize", () => {
   resizeTimer = window.setTimeout(rebuildMagazine, 180);
 });
 
-createMagazine()
-  .then(() => initSupabase())
-  .catch((error) => {
-    renderError(`${error.message} Verifique se o arquivo vendor/page-flip.browser.min.js esta presente.`);
-  });
+async function bootstrap() {
+  await loadMagazineData();
+  await initSupabase();
+  await createMagazine();
+}
+
+bootstrap().catch((error) => {
+  renderError(`${error.message} Verifique se o arquivo vendor/page-flip.browser.min.js esta presente.`);
+});
