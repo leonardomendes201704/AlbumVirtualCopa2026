@@ -294,6 +294,8 @@ const marketTree = document.querySelector("#marketTree");
 const marketSelectedPanel = document.querySelector("#marketSelectedPanel");
 const marketActionPanel = document.querySelector("#marketActionPanel");
 const marketTabs = document.querySelectorAll(".market-tab");
+const printStickerPageButton = document.querySelector("#printStickerPage");
+const printRoot = document.querySelector("#printRoot");
 const sellModal = document.querySelector("#sellModal");
 const sellBackdrop = document.querySelector(".sell-backdrop");
 const sellCloseButton = document.querySelector(".sell-close");
@@ -344,8 +346,10 @@ let selectedMarketStickerId = "";
 let selectedMarketTab = "sale";
 let marketConfigured = false;
 let pendingSellSticker = null;
+let printableStickerPages = new Map();
 let authMode = "signin";
 let authListenerBound = false;
+let statusMessageTimer = null;
 let packPity = { withoutEpicOrBetter: 0, withoutLegendary: 0 };
 let selectedPack = {
   type: "standard_pack",
@@ -675,6 +679,27 @@ function stickerGrid(teamName, startNumber) {
   return `<div class="sticker-grid" aria-hidden="true">${cells}</div>`;
 }
 
+function printableStickerMeta(teamName, startNumber, pageNumber) {
+  const stickers = teamCatalogStickers(teamName);
+  const normalizedTeamName = teamName.replace(".png", "");
+  return {
+    pageNumber,
+    teamName: normalizedTeamName,
+    startNumber,
+    endNumber: startNumber + 8,
+    stickers: Array.from({ length: 9 }, (_, index) => {
+      const sticker = stickers[startNumber + index - 1];
+      return sticker
+        ? {
+            id: sticker.id,
+            album_number: sticker.album_number,
+            team_name: sticker.team_name || normalizedTeamName,
+          }
+        : null;
+    }),
+  };
+}
+
 function pageBadge(pageNumber) {
   return `<span class="page-badge" aria-label="Pagina ${pageNumber}">${String(pageNumber).padStart(2, "0")}</span>`;
 }
@@ -948,6 +973,7 @@ async function hydrateStadiumImages() {
 }
 
 function buildPages() {
+  printableStickerPages = new Map();
   const pages = [
     makePage(
       "cover image-cover",
@@ -975,6 +1001,7 @@ function buildPages() {
       const stickerNumber = pageIndex * 9 + 1;
       const side = pages.length % 2 === 0 ? "--right" : "";
       const imagePath = `./Paginas/${encodeURIComponent(fileName)}`;
+      const pageArrayIndex = pages.length;
       pages.push(
         makePage(
           `image-page ${side}`,
@@ -985,6 +1012,7 @@ function buildPages() {
            ${flagCorner(fileName)}`,
         ),
       );
+      printableStickerPages.set(pageArrayIndex, printableStickerMeta(fileName, stickerNumber, imagePageNumber));
       imagePageNumber += 1;
     }
   });
@@ -1016,6 +1044,52 @@ function updateStatus() {
   statusElement.textContent = `${pageIndex} / ${totalPages - 1}`;
   previousButton.disabled = false;
   nextButton.disabled = pageIndex >= totalPages - 1;
+}
+
+function showTransientStatus(message) {
+  window.clearTimeout(statusMessageTimer);
+  statusElement.textContent = message;
+  statusMessageTimer = window.setTimeout(updateStatus, 2600);
+}
+
+function printStickerSlot(slot) {
+  if (!slot?.id) return `<span class="print-sticker-slot"></span>`;
+
+  const pastedSticker = pastedStickers[slot.id] ? officialStickerFor(pastedStickers[slot.id]) : null;
+  if (!pastedSticker?.src) return `<span class="print-sticker-slot"></span>`;
+
+  const label = pastedSticker.album_number || slot.album_number || "";
+  const teamName = pastedSticker.team_name || slot.team_name || "";
+  return `<span class="print-sticker-slot is-filled"><img src="${pastedSticker.src}" alt="${escapeHtml(teamName)} ${escapeHtml(label)}" /></span>`;
+}
+
+function printCurrentStickerPage() {
+  if (!requireRegisteredUser()) return;
+  if (isCoverClosed || !pageFlip) {
+    showTransientStatus("Abra uma pagina de selecao para imprimir as figurinhas.");
+    return;
+  }
+
+  const pageIndex = pageFlip.getCurrentPageIndex();
+  const printablePage = printableStickerPages.get(pageIndex);
+  if (!printablePage) {
+    showTransientStatus("Abra uma pagina de selecao para imprimir as figurinhas.");
+    return;
+  }
+
+  const slots = printablePage.stickers.map(printStickerSlot).join("");
+  printRoot.innerHTML = `
+    <div class="print-sheet" aria-label="Figurinhas para recorte">
+      <div class="print-grid">${slots}</div>
+    </div>
+  `;
+  printRoot.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => window.print(), 80);
+}
+
+function clearPrintSheet() {
+  printRoot.innerHTML = "";
+  printRoot.setAttribute("aria-hidden", "true");
 }
 
 function showCover() {
@@ -1256,6 +1330,9 @@ coverView.addEventListener("click", () => {
   if (!requireRegisteredUser()) return;
   showMagazine();
 });
+
+printStickerPageButton.addEventListener("click", printCurrentStickerPage);
+window.addEventListener("afterprint", clearPrintSheet);
 
 bookElement.addEventListener("click", (event) => {
   if (!requireRegisteredUser()) return;
