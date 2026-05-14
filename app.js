@@ -1943,6 +1943,12 @@ function decrementLocalOpenedSticker(stickerId) {
 
 function mergeMarketStickerIntoLocal(sticker) {
   if (!sticker?.sticker_id) return;
+  const availableCount = Number(sticker.available_count || 0);
+  if (availableCount <= 0) {
+    delete openedStickers[sticker.sticker_id];
+    return;
+  }
+
   const local = openedStickers[sticker.sticker_id] || {
     id: sticker.sticker_id,
     album_number: sticker.album_number,
@@ -1960,7 +1966,7 @@ function mergeMarketStickerIntoLocal(sticker) {
     src: sticker.src,
     count: 0,
   };
-  local.count = Math.max(Number(local.count || 0), Number(sticker.available_count || 0));
+  local.count = Math.max(Number(local.count || 0), availableCount);
   openedStickers[sticker.sticker_id] = local;
 }
 
@@ -2618,10 +2624,12 @@ function openInventoryModal() {
 }
 
 function renderCollection() {
-  const stickers = Object.values(openedStickers).sort((a, b) => {
+  const stickers = Object.values(openedStickers)
+    .filter((sticker) => Number(sticker.count || 0) > 0)
+    .sort((a, b) => {
     const teamCompare = (a.team_name || a.teamName || "").localeCompare(b.team_name || b.teamName || "", "pt-BR");
     return teamCompare || (a.number || 0) - (b.number || 0);
-  });
+    });
 
   collectionUniqueTotal.textContent = String(stickers.length);
   collectionGrid.innerHTML = stickers

@@ -228,6 +228,17 @@ begin
   on conflict (id) do update
     set credits = greatest(public.profiles.credits, greatest(coalesce(p_credits, 0), 0));
 
+  update public.user_stickers current_sticker
+     set available_count = 0,
+         updated_at = now()
+   where current_sticker.user_id = v_user
+     and current_sticker.reserved_count = 0
+     and not exists (
+       select 1
+         from jsonb_array_elements(coalesce(p_stickers, '[]'::jsonb)) snapshot_item
+        where snapshot_item->>'id' = current_sticker.sticker_id
+     );
+
   for v_item in select * from jsonb_array_elements(coalesce(p_stickers, '[]'::jsonb))
   loop
     insert into public.user_stickers (
@@ -291,7 +302,7 @@ begin
           position_label = excluded.position_label,
           metadata = public.user_stickers.metadata || excluded.metadata,
           src = excluded.src,
-          available_count = greatest(public.user_stickers.available_count, excluded.available_count),
+          available_count = excluded.available_count,
           pasted = public.user_stickers.pasted or excluded.pasted,
           updated_at = now();
   end loop;
