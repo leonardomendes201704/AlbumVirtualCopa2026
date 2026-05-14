@@ -35,7 +35,7 @@
           <span class="rail-icon" aria-hidden="true">◆</span>
           <span class="rail-label">Loja</span>
         </button>
-        <button class="rail-button" type="button" aria-label="Perfil" title="Perfil">
+        <button class="rail-button" id="openProfile" type="button" aria-label="Perfil" title="Perfil">
           <span class="rail-icon" aria-hidden="true">●</span>
           <span class="rail-label">Perfil</span>
         </button>
@@ -112,6 +112,48 @@
         </section>
 
         <p id="shopMessage" class="shop-message" role="status">Escolha creditos para comprar.</p>
+      </div>
+    </section>
+
+    <section id="profileModal" class="checkout-modal profile-modal" aria-hidden="true">
+      <button class="profile-backdrop checkout-backdrop" type="button" aria-label="Fechar perfil"></button>
+      <div class="checkout-card profile-card" role="dialog" aria-modal="true" aria-label="Perfil do usuario">
+        <header class="checkout-header">
+          <div>
+            <span>Conta</span>
+            <h2>Perfil</h2>
+          </div>
+          <button class="profile-close checkout-close" type="button" aria-label="Fechar perfil">Ã—</button>
+        </header>
+
+        <div class="profile-session">
+          <span>Status</span>
+          <strong id="profileUserStatus">Verificando...</strong>
+          <button id="profileLogout" class="profile-logout" type="button" hidden>Sair da conta</button>
+        </div>
+
+        <div class="profile-tabs" role="tablist" aria-label="Modo de autenticacao">
+          <button id="profileSigninTab" class="profile-tab is-selected" type="button">Entrar</button>
+          <button id="profileSignupTab" class="profile-tab" type="button">Criar conta</button>
+        </div>
+
+        <form id="profileForm" class="profile-form">
+          <label id="profileNameField">
+            Nome do colecionador
+            <input id="profileName" type="text" autocomplete="name" placeholder="Seu nome" />
+          </label>
+          <label>
+            E-mail
+            <input id="profileEmail" type="email" autocomplete="email" placeholder="voce@email.com" required />
+          </label>
+          <label>
+            Senha
+            <input id="profilePassword" type="password" autocomplete="current-password" minlength="6" placeholder="Minimo 6 caracteres" required />
+          </label>
+          <button id="profileSubmit" class="checkout-confirm" type="submit">Entrar</button>
+        </form>
+
+        <p id="profileMessage" class="packs-message" role="status">Entre para comprar, vender e manter seu mercado em uma conta.</p>
       </div>
     </section>
 

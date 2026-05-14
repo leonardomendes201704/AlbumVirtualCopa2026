@@ -296,6 +296,21 @@ const sellStickerSummary = document.querySelector("#sellStickerSummary");
 const sellPriceInput = document.querySelector("#sellPriceInput");
 const confirmSellListingButton = document.querySelector("#confirmSellListing");
 const sellMessage = document.querySelector("#sellMessage");
+const openProfileButton = document.querySelector("#openProfile");
+const profileModal = document.querySelector("#profileModal");
+const profileBackdrop = document.querySelector(".profile-backdrop");
+const profileCloseButton = document.querySelector(".profile-close");
+const profileUserStatus = document.querySelector("#profileUserStatus");
+const profileLogoutButton = document.querySelector("#profileLogout");
+const profileSigninTab = document.querySelector("#profileSigninTab");
+const profileSignupTab = document.querySelector("#profileSignupTab");
+const profileForm = document.querySelector("#profileForm");
+const profileNameField = document.querySelector("#profileNameField");
+const profileNameInput = document.querySelector("#profileName");
+const profileEmailInput = document.querySelector("#profileEmail");
+const profilePasswordInput = document.querySelector("#profilePassword");
+const profileSubmitButton = document.querySelector("#profileSubmit");
+const profileMessage = document.querySelector("#profileMessage");
 
 let pageFlip;
 let resizeTimer;
@@ -320,6 +335,8 @@ let supabaseProfile = null;
 let marketListingsState = [];
 let marketConfigured = false;
 let pendingSellSticker = null;
+let authMode = "signin";
+let authListenerBound = false;
 let packPity = JSON.parse(
   localStorage.getItem("albumPackPity") || '{"withoutEpicOrBetter":0,"withoutLegendary":0}',
 );
@@ -1008,8 +1025,8 @@ function updateStickerActionBar() {
     return;
   }
 
-  if (!supabaseUser) {
-    sellStickerButton.title = "Entrando no mercado...";
+  if (!isRegisteredUser()) {
+    sellStickerButton.title = "Entre com e-mail e senha para vender no mercado.";
     return;
   }
 
@@ -1228,6 +1245,51 @@ function marketSetStatus(message) {
   if (marketStatus) marketStatus.textContent = message;
 }
 
+function isRegisteredUser() {
+  return Boolean(supabaseUser?.email && !supabaseUser?.is_anonymous);
+}
+
+function profileLabel() {
+  if (isRegisteredUser()) return supabaseUser.email;
+  if (supabaseUser?.is_anonymous) return "Visitante anonimo";
+  return "Desconectado";
+}
+
+function updateProfileUi(message) {
+  profileUserStatus.textContent = profileLabel();
+  profileLogoutButton.hidden = !supabaseUser;
+  profileLogoutButton.disabled = !supabaseUser;
+  if (message) profileMessage.textContent = message;
+  updateStickerActionBar();
+  renderMarketListings();
+}
+
+async function ensureSupabaseClient() {
+  if (supabaseClient) return true;
+
+  const response = await fetch("/api/supabase-config", { cache: "no-store" });
+  const config = response.ok ? await response.json() : { configured: false };
+  marketConfigured = Boolean(config.configured && config.url && config.anonKey && window.supabase);
+
+  if (!marketConfigured) {
+    marketSetStatus("Mercado offline: configure SUPABASE_URL e SUPABASE_ANON_KEY na Vercel.");
+    updateProfileUi("Supabase ainda nao esta configurado.");
+    return false;
+  }
+
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+
+  if (!authListenerBound) {
+    authListenerBound = true;
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      supabaseUser = session?.user || null;
+      updateProfileUi();
+    });
+  }
+
+  return true;
+}
+
 function marketStickerPayload(sticker) {
   const officialSticker = officialStickerFor(sticker);
   return {
@@ -1284,13 +1346,13 @@ async function refreshSupabaseProfile() {
   return data;
 }
 
-async function ensureSupabaseProfile() {
+async function ensureSupabaseProfile(displayName = "Colecionador") {
   if (!supabaseClient || !supabaseUser) return null;
 
   await supabaseClient.from("profiles").upsert(
     {
       id: supabaseUser.id,
-      display_name: "Colecionador",
+      display_name: displayName || "Colecionador",
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
@@ -1338,20 +1400,12 @@ async function syncLocalInventoryToSupabase() {
 }
 
 async function initSupabase() {
-  if (supabaseClient || marketConfigured) return Boolean(supabaseClient);
-
   try {
-    const response = await fetch("/api/supabase-config", { cache: "no-store" });
-    const config = response.ok ? await response.json() : { configured: false };
-    marketConfigured = Boolean(config.configured && config.url && config.anonKey && window.supabase);
-
-    if (!marketConfigured) {
-      marketSetStatus("Mercado offline: configure SUPABASE_URL e SUPABASE_ANON_KEY na Vercel.");
+    if (!(await ensureSupabaseClient())) {
       updateStickerActionBar();
       return false;
     }
 
-    supabaseClient = window.supabase.createClient(config.url, config.anonKey);
     const sessionResult = await supabaseClient.auth.getSession();
     supabaseUser = sessionResult.data.session?.user || null;
 
@@ -1361,9 +1415,13 @@ async function initSupabase() {
       supabaseUser = data.user;
     }
 
+    const localCreditSnapshot = Number(localStorage.getItem("albumCredits") || creditBalance || 0);
     await ensureSupabaseProfile();
+    creditBalance = Math.max(creditBalance, localCreditSnapshot);
+    updateCredits();
     await syncLocalInventoryToSupabase();
     await loadMarketListings();
+    updateProfileUi();
     updateStickerActionBar();
     return true;
   } catch (error) {
@@ -1484,7 +1542,9 @@ function renderMarketListingCard(listing) {
   const playerName = listing.player_name || listing.metadata?.player?.known_as || listing.metadata?.player?.full_name || listing.title || "";
   const position = listing.position_label || listing.metadata?.player?.position_label || listing.role || "";
   const price = Number(listing.price || 0);
-  const canBuy = Boolean(supabaseUser && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price);
+  const canBuy = Boolean(
+    isRegisteredUser() && listing.seller_id !== supabaseUser.id && (supabaseProfile?.credits || 0) >= price,
+  );
   const media = listing.src
     ? `<img src="${listing.src}" alt="${escapeHtml(listing.team_name)} ${escapeHtml(stickerLabel)}" />`
     : `<span class="market-card-placeholder">${escapeHtml(stickerLabel)}<small>${escapeHtml(playerName || listing.team_name || "")}<br>${escapeHtml(listing.rarity_label || "")}</small></span>`;
@@ -1492,6 +1552,8 @@ function renderMarketListingCard(listing) {
   const disabledReason =
     listing.seller_id === supabaseUser?.id
       ? "Seu anuncio"
+      : !isRegisteredUser()
+        ? "Login necessario"
       : (supabaseProfile?.credits || 0) < price
         ? "Saldo insuficiente"
         : "Comprar";
@@ -1555,6 +1617,110 @@ function closeMarketModal() {
   marketModal.setAttribute("aria-hidden", "true");
 }
 
+function setAuthMode(mode) {
+  authMode = mode;
+  const isSignup = mode === "signup";
+  profileSigninTab.classList.toggle("is-selected", !isSignup);
+  profileSignupTab.classList.toggle("is-selected", isSignup);
+  profileNameField.hidden = !isSignup;
+  profileSubmitButton.textContent = isSignup ? "Criar conta" : "Entrar";
+  profilePasswordInput.autocomplete = isSignup ? "new-password" : "current-password";
+  profileMessage.textContent = isSignup
+    ? "Crie uma conta para movimentar o mercado em outros navegadores."
+    : "Entre para comprar, vender e manter seu mercado em uma conta.";
+}
+
+function openProfileModal(message) {
+  profileModal.classList.add("is-open");
+  profileModal.setAttribute("aria-hidden", "false");
+  setAuthMode(authMode);
+  updateProfileUi(message);
+  ensureSupabaseClient()
+    .then(async (ready) => {
+      if (!ready) return;
+      const sessionResult = await supabaseClient.auth.getSession();
+      supabaseUser = sessionResult.data.session?.user || null;
+      if (supabaseUser) await refreshSupabaseProfile().catch(() => null);
+      updateProfileUi(message);
+    })
+    .catch((error) => updateProfileUi(error.message));
+}
+
+function closeProfileModal() {
+  profileModal.classList.remove("is-open");
+  profileModal.setAttribute("aria-hidden", "true");
+}
+
+async function handleProfileSubmit(event) {
+  event.preventDefault();
+
+  profileSubmitButton.disabled = true;
+  profileMessage.textContent = authMode === "signup" ? "Criando conta..." : "Entrando...";
+
+  try {
+    if (!(await ensureSupabaseClient())) throw new Error("Supabase nao configurado.");
+
+    const email = profileEmailInput.value.trim();
+    const password = profilePasswordInput.value;
+    const displayName = profileNameInput.value.trim() || "Colecionador";
+
+    const result =
+      authMode === "signup"
+        ? await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                display_name: displayName,
+              },
+            },
+          })
+        : await supabaseClient.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+    if (result.error) throw result.error;
+
+    supabaseUser = result.data.session?.user || result.data.user || null;
+    if (!supabaseUser) {
+      profileMessage.textContent = "Conta criada. Verifique seu e-mail para confirmar o acesso.";
+      return;
+    }
+
+    const localCreditSnapshot = Number(localStorage.getItem("albumCredits") || creditBalance || 0);
+    await ensureSupabaseProfile(displayName);
+    creditBalance = Math.max(creditBalance, localCreditSnapshot);
+    updateCredits();
+    await syncLocalInventoryToSupabase();
+    await loadMarketListings();
+    updateProfileUi(authMode === "signup" ? "Conta criada e conectada." : "Login realizado.");
+  } catch (error) {
+    profileMessage.textContent = error.message;
+  } finally {
+    profileSubmitButton.disabled = false;
+  }
+}
+
+async function logoutProfile() {
+  if (!supabaseClient) return;
+
+  profileLogoutButton.disabled = true;
+  profileMessage.textContent = "Saindo...";
+
+  try {
+    await supabaseClient.auth.signOut();
+    supabaseUser = null;
+    supabaseProfile = null;
+    marketListingsState = [];
+    updateProfileUi("Voce saiu da conta.");
+  } catch (error) {
+    profileMessage.textContent = error.message;
+  } finally {
+    profileLogoutButton.disabled = false;
+  }
+}
+
 function localOpenedInventoryCount(sticker) {
   if (!sticker?.id) return 0;
   const officialSticker = officialStickerFor(sticker);
@@ -1564,6 +1730,10 @@ function localOpenedInventoryCount(sticker) {
 
 function openSellModal() {
   if (!currentPreviewSticker?.id) return;
+  if (!isRegisteredUser()) {
+    openProfileModal("Entre com e-mail e senha para anunciar duplicatas.");
+    return;
+  }
 
   pendingSellSticker = {
     ...marketStickerPayload(currentPreviewSticker),
@@ -1588,6 +1758,10 @@ function closeSellModal() {
 
 async function createMarketListing() {
   if (!pendingSellSticker || !supabaseClient) return;
+  if (!isRegisteredUser()) {
+    sellMessage.textContent = "Entre com e-mail e senha para vender.";
+    return;
+  }
 
   const price = Number(sellPriceInput.value || 0);
   if (!Number.isInteger(price) || price <= 0) {
@@ -1632,6 +1806,10 @@ async function createMarketListing() {
 
 async function buyMarketListing(listingId) {
   if (!supabaseClient) return;
+  if (!isRegisteredUser()) {
+    openProfileModal("Entre com e-mail e senha para comprar no mercado.");
+    return;
+  }
 
   const listing = marketListingsState.find((item) => item.id === listingId);
   marketSetStatus("Processando compra...");
@@ -2145,6 +2323,14 @@ sellCloseButton.addEventListener("click", closeSellModal);
 sellBackdrop.addEventListener("click", closeSellModal);
 confirmSellListingButton.addEventListener("click", createMarketListing);
 
+openProfileButton.addEventListener("click", () => openProfileModal());
+profileCloseButton.addEventListener("click", closeProfileModal);
+profileBackdrop.addEventListener("click", closeProfileModal);
+profileSigninTab.addEventListener("click", () => setAuthMode("signin"));
+profileSignupTab.addEventListener("click", () => setAuthMode("signup"));
+profileForm.addEventListener("submit", handleProfileSubmit);
+profileLogoutButton.addEventListener("click", logoutProfile);
+
 function closeCheckout() {
   checkoutModal.classList.remove("is-open");
   checkoutModal.setAttribute("aria-hidden", "true");
@@ -2207,6 +2393,11 @@ window.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && marketModal.classList.contains("is-open")) {
     closeMarketModal();
+    return;
+  }
+
+  if (event.key === "Escape" && profileModal.classList.contains("is-open")) {
+    closeProfileModal();
     return;
   }
 
