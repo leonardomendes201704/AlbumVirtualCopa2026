@@ -14,6 +14,20 @@ const types = {
   ".json": "application/json; charset=utf-8",
 };
 
+async function runLocalMarketSetup(req, res) {
+  try {
+    const handler = require("./api/setup-market");
+    await handler(req, {
+      setHeader: (key, value) => res.setHeader(key, value),
+      status: (statusCode) => ({
+        json: (body) => send(res, statusCode, JSON.stringify(body), types[".json"]),
+      }),
+    });
+  } catch (error) {
+    send(res, 500, JSON.stringify({ ok: false, error: error.message }), types[".json"]);
+  }
+}
+
 function send(res, status, body, type = "text/plain; charset=utf-8") {
   res.writeHead(status, {
     "Content-Type": type,
@@ -49,6 +63,11 @@ const server = http.createServer((req, res) => {
       }),
       types[".json"],
     );
+    return;
+  }
+
+  if (url.pathname === "/api/setup-market") {
+    runLocalMarketSetup(req, res);
     return;
   }
 

@@ -7,6 +7,7 @@
     "generate:figurinhas": "node generate-figurinhas-manifest.js"
   },
   "dependencies": {
+    "pg": "^8.13.1",
     "stripe": "^17.7.0"
   }
 }

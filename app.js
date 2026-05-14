@@ -1367,11 +1367,51 @@ async function initSupabase() {
     updateStickerActionBar();
     return true;
   } catch (error) {
+    if (await tryAutoSetupMarket(error)) {
+      return initSupabase();
+    }
+
     marketSetStatus(`Mercado indisponivel: ${error.message}`);
     supabaseClient = null;
     supabaseUser = null;
     marketConfigured = false;
     updateStickerActionBar();
+    return false;
+  }
+}
+
+async function tryAutoSetupMarket(error) {
+  const message = String(error?.message || "");
+  const looksLikeMissingSchema =
+    message.includes("schema cache") ||
+    message.includes("Could not find the table") ||
+    message.includes("Could not find the function");
+
+  if (!looksLikeMissingSchema || sessionStorage.getItem("marketSetupAttempted") === "true") {
+    return false;
+  }
+
+  sessionStorage.setItem("marketSetupAttempted", "true");
+  marketSetStatus("Mercado ainda nao estava preparado. Tentando configurar automaticamente...");
+
+  try {
+    const response = await fetch("/api/setup-market", {
+      method: "POST",
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || "Setup automatico indisponivel.");
+    }
+
+    marketSetStatus("Mercado configurado. Reconectando...");
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+    supabaseClient = null;
+    supabaseUser = null;
+    marketConfigured = false;
+    return true;
+  } catch (setupError) {
+    marketSetStatus(`Setup automatico falhou: ${setupError.message}`);
     return false;
   }
 }

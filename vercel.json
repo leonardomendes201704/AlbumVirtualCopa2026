@@ -1,6 +1,11 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
+  "functions": {
+    "api/setup-market.js": {
+      "includeFiles": "supabase/market.sql"
+    }
+  },
   "rewrites": [
     {
       "source": "/config/colecao-figurinhas",

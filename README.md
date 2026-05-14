@@ -73,8 +73,29 @@ O mercado usa Supabase para autenticar o usuario, reservar duplicatas anunciadas
 
 1. Crie um projeto no Supabase.
 2. Em Authentication, habilite Anonymous Sign-Ins para o app entrar sem tela de login nesta primeira versao.
-3. Abra o SQL Editor e execute `supabase/market.sql`.
-4. Copie Project URL e anon public key para `SUPABASE_URL` e `SUPABASE_ANON_KEY` na Vercel.
-5. Faça redeploy.
+3. Copie Project URL e anon public key para `SUPABASE_URL` e `SUPABASE_ANON_KEY` na Vercel.
+4. Copie a connection string do banco para `SUPABASE_DB_URL` na Vercel.
+5. Configure `MARKET_SETUP_TOKEN` com um valor secreto grande.
+6. Faça redeploy.
 
 O app migra suavemente o saldo e as figurinhas abertas do navegador para o Supabase quando o usuario acessa o mercado. O banco passa a ser a fonte real para anuncios e compras.
+
+### Setup automatico do mercado
+
+Se o Supabase ainda nao tiver as tabelas/funcoes, o app pode tentar criar tudo pela rota server-side `/api/setup-market`.
+
+Variaveis usadas:
+
+```text
+SUPABASE_DB_URL=postgresql://...
+MARKET_SETUP_TOKEN=um_token_grande
+MARKET_AUTO_SETUP=false
+```
+
+Para setup manual, chame:
+
+```powershell
+Invoke-WebRequest -Method POST -Uri "https://seu-app.vercel.app/api/setup-market" -Headers @{ "x-setup-token" = "seu_token" }
+```
+
+Para resolver temporariamente pelo proprio app, defina `MARKET_AUTO_SETUP=true`, faça redeploy, abra o Mercado uma vez e depois volte para `MARKET_AUTO_SETUP=false`.
