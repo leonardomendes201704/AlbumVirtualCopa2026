@@ -350,6 +350,7 @@ let printableStickerPages = new Map();
 let authMode = "signin";
 let authListenerBound = false;
 let statusMessageTimer = null;
+let pendingMagazineRebuild = false;
 let packPity = { withoutEpicOrBetter: 0, withoutLegendary: 0 };
 let selectedPack = {
   type: "standard_pack",
@@ -1106,6 +1107,12 @@ function showMagazine() {
   isCoverClosed = false;
   coverView.classList.add("is-hidden");
   bookElement.classList.remove("is-hidden");
+
+  if (pendingMagazineRebuild) {
+    requestMagazineRebuild();
+    return;
+  }
+
   if (pageFlip && pageFlip.getCurrentPageIndex() === 0) {
     pageFlip.turnToPage(1);
   }
@@ -1302,6 +1309,16 @@ function rebuildMagazine() {
   createMagazine(currentPage).catch((error) => {
     renderError(`${error.message} Verifique se o arquivo vendor/page-flip.browser.min.js esta presente.`);
   });
+}
+
+function requestMagazineRebuild() {
+  if (isCoverClosed) {
+    pendingMagazineRebuild = true;
+    return;
+  }
+
+  pendingMagazineRebuild = false;
+  rebuildMagazine();
 }
 
 previousButton.addEventListener("click", () => {
@@ -1638,7 +1655,7 @@ async function initSupabase() {
     updateProfileUi();
     closeProfileModal();
     updateStickerActionBar();
-    rebuildMagazine();
+    requestMagazineRebuild();
     return true;
   } catch (error) {
     if (await tryAutoSetupMarket(error)) {
@@ -2313,7 +2330,7 @@ async function handleProfileSubmit(event) {
     await loadMarketListings();
     updateProfileUi(authMode === "signup" ? "Conta criada e conectada." : "Login realizado.");
     closeProfileModal();
-    rebuildMagazine();
+    requestMagazineRebuild();
   } catch (error) {
     profileMessage.textContent = error.message;
   } finally {
