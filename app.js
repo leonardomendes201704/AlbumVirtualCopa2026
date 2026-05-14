@@ -1462,6 +1462,75 @@ function marketStickerPayload(sticker) {
   };
 }
 
+function localStickerFromUserSticker(row) {
+  const officialSticker = officialStickerFor({
+    id: row.sticker_id,
+    album_number: row.album_number,
+    team_code: row.team_code,
+    team_name: row.team_name,
+    group: row.group,
+    rarity: row.rarity,
+    rarity_label: row.rarity_label,
+    duplicate_value: row.duplicate_value,
+    foil: row.foil,
+    title: row.title,
+    role: row.role,
+    card_type: row.card_type || row.metadata?.card_type,
+    category_code: row.category_code || row.metadata?.category_code,
+    player: row.metadata?.player,
+    player_name: row.player_name || row.metadata?.player?.known_as || row.metadata?.player?.full_name,
+    position_label: row.position_label || row.metadata?.player?.position_label,
+    current_club: row.current_club || row.metadata?.player?.current_club,
+    shirt_number: row.shirt_number || row.metadata?.player?.shirt_number,
+    drop: row.metadata?.drop,
+    image_generation: row.metadata?.image_generation,
+    src: row.src,
+  });
+
+  return {
+    ...officialSticker,
+    inventoryId: row.sticker_id,
+  };
+}
+
+async function hydrateLocalInventoryFromSupabase() {
+  if (!supabaseClient || !supabaseUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("user_stickers")
+    .select("*")
+    .eq("user_id", supabaseUser.id);
+
+  if (error) throw error;
+
+  (data || []).forEach((row) => {
+    if (!row.sticker_id) return;
+
+    const sticker = localStickerFromUserSticker(row);
+    if (!sticker?.id) return;
+
+    const availableCount = Number(row.available_count || 0);
+    if (availableCount > 0) {
+      const current = openedStickers[sticker.id] || openedStickers[row.sticker_id] || {
+        ...sticker,
+        count: 0,
+      };
+      current.count = Math.max(Number(current.count || 0), availableCount);
+      openedStickers[sticker.id] = current;
+    }
+
+    if (row.pasted) {
+      pastedStickers[sticker.id] = {
+        ...sticker,
+        pastedAt: pastedStickers[sticker.id]?.pastedAt || row.updated_at || new Date().toISOString(),
+      };
+    }
+  });
+
+  saveOpenedStickers();
+  savePastedStickers();
+}
+
 async function refreshSupabaseProfile() {
   if (!supabaseClient || !supabaseUser) return null;
 
@@ -1560,14 +1629,16 @@ async function initSupabase() {
     loadUserLocalState();
     const localCreditSnapshot = Number(localStorage.getItem(userStorageKey("albumCredits")) || creditBalance || 0);
     await ensureSupabaseProfile();
-    creditBalance = Math.max(creditBalance, localCreditSnapshot);
+    creditBalance = Math.max(creditBalance, localCreditSnapshot, Number(supabaseProfile?.credits || 0));
     updateCredits();
+    await hydrateLocalInventoryFromSupabase();
     await syncLocalInventoryToSupabase();
     await applyCheckoutReturn();
     await loadMarketListings();
     updateProfileUi();
     closeProfileModal();
     updateStickerActionBar();
+    rebuildMagazine();
     return true;
   } catch (error) {
     if (await tryAutoSetupMarket(error)) {
@@ -2235,12 +2306,14 @@ async function handleProfileSubmit(event) {
     loadUserLocalState();
     const localCreditSnapshot = Number(localStorage.getItem(userStorageKey("albumCredits")) || creditBalance || 0);
     await ensureSupabaseProfile(displayName);
-    creditBalance = Math.max(creditBalance, localCreditSnapshot);
+    creditBalance = Math.max(creditBalance, localCreditSnapshot, Number(supabaseProfile?.credits || 0));
     updateCredits();
+    await hydrateLocalInventoryFromSupabase();
     await syncLocalInventoryToSupabase();
     await loadMarketListings();
     updateProfileUi(authMode === "signup" ? "Conta criada e conectada." : "Login realizado.");
     closeProfileModal();
+    rebuildMagazine();
   } catch (error) {
     profileMessage.textContent = error.message;
   } finally {
