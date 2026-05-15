@@ -455,7 +455,7 @@ async function loadStickers() {
 
 async function loadStickerCatalog() {
   try {
-    const response = await fetch("./copa_2026_album_v4_48_selecoes_safe_prompt_image_player_names.json", { cache: "no-store" });
+    const response = await fetch("./copa_2026_album_v5_48_selecoes_safe_prompt_image_player_names.json", { cache: "no-store" });
     if (!response.ok) throw new Error("Catalogo indisponivel.");
 
     const data = await response.json();

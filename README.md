@@ -1,6 +1,6 @@
 # Album Virtual Copa 2026
 
-Album virtual em formato de revista, com flip de paginas, figurinhas coladas e paginas especiais da Copa do Mundo FIFA 2026. O catalogo oficial do app fica em `copa_2026_album_v4_48_selecoes_safe_prompt_image_player_names.json`, com metadados de jogador, posicao, raridade e prompts de imagem.
+Album virtual em formato de revista, com flip de paginas, figurinhas coladas e paginas especiais da Copa do Mundo FIFA 2026. O catalogo oficial do app fica em `copa_2026_album_v5_48_selecoes_safe_prompt_image_player_names.json`, com metadados de jogador, posicao, raridade e prompts de imagem.
 
 ## Rodar localmente
 

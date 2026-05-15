@@ -1,4 +1,4 @@
-const DATA_URL = "/copa_2026_album_v4_48_selecoes_safe_prompt_image_player_names.json";
+const DATA_URL = "/copa_2026_album_v5_48_selecoes_safe_prompt_image_player_names.json";
 
 const rarityColors = {
   common: "#cfd5d0",
